@@ -9,8 +9,8 @@ const BottomNavBar = ({ activeTab, onTabChange }) => {
       ];
   
     return (
-        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
-          <div className="flex justify-around items-center px-4 py-2 max-w-screen-lg mx-auto">
+        <nav className="fixed bottom-0 left-0 right-0 bg-white">
+          <div className="flex justify-around items-center px-4 py-2 w-full max-w-[430px] mx-auto border-t border-gray-200">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
@@ -21,7 +21,7 @@ const BottomNavBar = ({ activeTab, onTabChange }) => {
                   onClick={() => onTabChange(item.id)}
                   className={`
                     flex flex-col items-center justify-center 
-                    py-2 px-4 rounded-2xl min-w-[70px]
+                    py-2 px-4 rounded-2xl min-w-[85px]
                     transition-all duration-300 ease-in-out
                     ${isActive 
                       ? `${item.color} text-white scale-105 shadow-lg` 

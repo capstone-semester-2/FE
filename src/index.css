@@ -1,2 +1,16 @@
 @import "tailwindcss";
 
+/* App shell to mimic mobile web-app width */
+.app-shell {
+  max-width: 430px; /* typical mobile width */
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+}
+
+.app-content {
+  flex: 1 1 auto;
+  padding-bottom: 88px; /* reserve space for bottom navbar */
+}
