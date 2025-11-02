@@ -6,6 +6,7 @@ import RecordingControls from './features/recording/RecordingControls';
 import HistoryScreen from './features/history/HistoryScreen';
 import BookmarkScreen from './features/bookmarks/BookmarkScreen';
 import EncyclopediaScreen from './features/encyclopedia/EncyclopediaScreen';
+import SettingsModal from './features/settings/SettingsModal';
 import { BookmarkProvider } from './store/BookmarkContext';
 
 
@@ -14,6 +15,7 @@ function App() {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const timerRef = useRef(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // 녹음 기록 데이터
   const [recordings, setRecordings] = useState([
@@ -64,6 +66,18 @@ function App() {
   }, [activeTab]);
 
   useEffect(() => {
+    if (isSettingsOpen) {
+      document.body.classList.add('overflow-hidden');
+    } else {
+      document.body.classList.remove('overflow-hidden');
+    }
+
+    return () => {
+      document.body.classList.remove('overflow-hidden');
+    };
+  }, [isSettingsOpen]);
+
+  useEffect(() => {
     if (isRecording) {
       timerRef.current = setInterval(() => {
         setRecordingTime(prevTime => prevTime + 1);
@@ -82,7 +96,7 @@ function App() {
     <BookmarkProvider>
       <div className="app-shell">
         <div className="app-content">
-          <Header onSettingsClick={() => {}} logoSrc={logo} />
+          <Header onSettingsClick={() => setIsSettingsOpen(true)} logoSrc={logo} />
           <main className="flex-1 overflow-hidden bg-gray-50">
           {activeTab === 'record' && (
             <div className="min-h-full overflow-auto pb-24">
@@ -108,6 +122,18 @@ function App() {
           {activeTab === 'encyclopedia' && <EncyclopediaScreen />}
         </main>
       </div>
+        {isSettingsOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div
+              className="absolute inset-0 bg-white/70 backdrop-blur-sm"
+              onClick={() => setIsSettingsOpen(false)}
+              aria-hidden="true"
+            />
+            <div className="relative z-10 w-full max-w-[300px]">
+              <SettingsModal onClose={() => setIsSettingsOpen(false)} />
+            </div>
+          </div>
+        )}
         <BottomNavBar activeTab={activeTab} onTabChange={handleTabChange} />
       </div>
     </BookmarkProvider>
