@@ -5,6 +5,8 @@ import Header from './components/Header';
 import logo from './assets/logo.png';
 import RecordingControls from './features/recording/RecordingControls';
 import HistoryScreen from './features/history/HistoryScreen';
+import BookmarkScreen from './features/bookmarks/BookmarkScreen';
+
 
 function App() {
   const [activeTab, setActiveTab] = useState('record');
@@ -75,14 +77,18 @@ function App() {
     <div className="app-shell">
       <div className="app-content">
         <Header onSettingsClick={() => {}} logoSrc={logo} />
-        <main className="flex-1 overflow-hidden">
+        <main className="flex-1 overflow-hidden bg-gray-50">
           {activeTab === 'record' && (
-            <RecordingControls 
-              isRecording={isRecording}
-              recordingTime={recordingTime}
-              onStart={handleStartRecording}
-              onStop={handleStopRecording}
-            />
+            <div className="min-h-full overflow-auto pb-24">
+              <div className="flex justify-center px-4 py-6 w-full">
+                <RecordingControls 
+                  isRecording={isRecording}
+                  recordingTime={recordingTime}
+                  onStart={handleStartRecording}
+                  onStop={handleStopRecording}
+                />
+              </div>
+            </div>
           )}
           {activeTab === 'history' && (
             <HistoryScreen 
@@ -91,15 +97,14 @@ function App() {
             />
           )}
           {activeTab === 'bookmark' && (
-            <div className="p-4">
-              <h2 className="text-xl font-bold">북마크</h2>
-              <p className="text-gray-500 mt-2">북마크 화면 (구현 예정)</p>
-            </div>
+            <BookmarkScreen />
           )}
           {activeTab === 'encyclopedia' && (
-            <div className="p-4">
-              <h2 className="text-xl font-bold">백과사전</h2>
-              <p className="text-gray-500 mt-2">백과사전 화면 (구현 예정)</p>
+            <div className="min-h-full overflow-auto pb-24">
+              <div className="p-4">
+                <h2 className="text-xl font-bold">백과사전</h2>
+                <p className="text-gray-500 mt-2">백과사전 화면 (구현 예정)</p>
+              </div>
             </div>
           )}
         </main>

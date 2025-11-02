@@ -17,7 +17,7 @@ const Header = ({ onSettingsClick, logoSrc, logoAlt = 'App logo' }) => {
               </div>
             )}
             <div>
-              <h1 className="font-bold text-lg -ml-15">Re-Voice</h1>
+              <h1 className="font-bold text-lg">Re-Voice</h1>
               <p className="text-xs text-gray-500">명확한 음성을 위한 AI 도우미</p>
             </div>
           </div>

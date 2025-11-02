@@ -33,7 +33,7 @@ const HistoryScreen = ({ recordings, onDelete }) => {
   };
 
   return (
-    <div className="flex-1 overflow-auto pb-24 bg-white">
+    <div className="flex-1 overflow-auto pb-24 bg-gray-50">
       <div className="p-4">
         {/* 헤더 */}
         <div className="mb-4 text-left">
