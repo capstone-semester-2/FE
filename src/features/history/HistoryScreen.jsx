@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Clock } from 'lucide-react';
+import { Clock, X } from 'lucide-react';
 import HistoryListItem from './HistoryListItem';
 
 const HistoryScreen = ({ recordings, onDelete }) => {
@@ -78,10 +78,23 @@ const HistoryScreen = ({ recordings, onDelete }) => {
 
       {/* 삭제 확인 팝업 */}
       {showDeletePopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
-            <h3 className="text-lg font-bold mb-2">녹음을 삭제하시겠습니까?</h3>
-            <p className="text-gray-600 text-sm mb-6">삭제된 녹음은 복구할 수 없습니다.</p>
+        <div className="fixed inset-0 bg-white/70 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm p-6 relative">
+            <button
+              onClick={() => setShowDeletePopup(false)}
+              className="absolute top-4 right-4 p-1 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
+            <div className="flex justify-center mb-4">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+            </div>
+            <h3 className="text-lg font-bold mb-2 text-center">녹음을 삭제하시겠습니까?</h3>
+            <p className="text-gray-600 text-sm mb-6 text-center">삭제된 녹음은 복구할 수 없습니다.</p>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowDeletePopup(false)}

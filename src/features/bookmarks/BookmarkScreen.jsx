@@ -105,7 +105,7 @@ const BookmarkScreen = () => {
       </div>
 
       {showUnsaveModal && pendingItem && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+        <div className="fixed inset-0 bg-white/70 backdrop-blur-sm flex justify-center items-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 relative">
             <button
               onClick={cancelUnsave}
