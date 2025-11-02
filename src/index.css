@@ -6,6 +6,8 @@ html, body {
   scrollbar-gutter: stable both-edges;
 }
 
+
+
 /* App shell to mimic mobile web-app width */
 .app-shell {
   max-width: 430px; /* typical mobile width */
@@ -13,12 +15,13 @@ html, body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: #ffffff;
+  background: #f9fafb; /* bg-gray-50 */
 }
 
 .app-content {
   flex: 1 1 auto;
   padding-bottom: 88px; /* reserve space for bottom navbar */
+  background: #f9fafb; /* bg-gray-50 */
 }
 
 @keyframes scale-in {
@@ -35,3 +38,4 @@ html, body {
 .animate-scale-in {
   animation: scale-in 0.2s ease-out;
 }
+
