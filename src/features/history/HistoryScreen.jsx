@@ -36,7 +36,7 @@ const HistoryScreen = ({ recordings, onDelete }) => {
     <div className="flex-1 overflow-auto pb-24 bg-gray-50">
       <div className="p-4">
         {/* 헤더 */}
-        <div className="mb-4 text-left">
+        <div className="mt-2 mb-4 text-left">
           <h2 className="text-xl font-bold mb-1">사용 기록</h2>
           <p className="text-xs text-gray-400">내가 사용했던 음성들을 다시 들어보세요</p>
         </div>

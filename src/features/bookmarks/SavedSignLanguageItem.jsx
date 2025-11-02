@@ -1,7 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { Youtube, PlayCircle, Bookmark } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Play, Bookmark } from 'lucide-react';
 
-const SavedSignLanguageItem = ({ word, thumbnailUrl, onPlayVideo, onUnsave }) => {
+const SavedSignLanguageItem = ({
+  id,
+  word,
+  thumbnailUrl,
+  onPlayVideo,
+  onToggleSave,
+  isSaved = false,
+}) => {
   const [isImageError, setIsImageError] = useState(false);
 
   useEffect(() => {
@@ -9,10 +16,9 @@ const SavedSignLanguageItem = ({ word, thumbnailUrl, onPlayVideo, onUnsave }) =>
   }, [thumbnailUrl]);
 
   return (
-    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-      <div className="flex items-center gap-8">
-        {/* 비디오 썸네일/아이콘 */}
-        <div className="w-20 h-20 bg-violet-100 rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden">
+    <div className="bg-white rounded-[26px] px-5 py-4 ">
+      <div className="flex items-center gap-4">
+        <div className="w-20 h-20 bg-[#EDE7FF] rounded-[18px] flex items-center justify-center overflow-hidden flex-shrink-0">
           {thumbnailUrl && !isImageError ? (
             <img
               src={thumbnailUrl}
@@ -21,31 +27,32 @@ const SavedSignLanguageItem = ({ word, thumbnailUrl, onPlayVideo, onUnsave }) =>
               onError={() => setIsImageError(true)}
             />
           ) : (
-            <Youtube className="w-8 h-8 text-violet-700" />
+            <Play className="w-6 h-6 text-[#7B61FF]" />
           )}
         </div>
 
-        {/* 단어 정보 */}
         <div className="flex-1 min-w-0">
-          <h3 className="font-bold text-lg text-gray-900 mb-2">{word}</h3>
-          <div className="flex gap-6">
-            {/* 영상 보기 버튼 */}
+          <h3 className="text-lg font-semibold text-gray-900 mb-3">{word}</h3>
+          <div className="flex gap-2 flex-wrap">
             <button
-              onClick={() => onPlayVideo(word)}
-              className="px-4 py-1.5 bg-violet-100 text-violet-700 rounded-full text-sm font-medium hover:bg-violet-200 transition-colors flex items-center gap-1.5"
+              type="button"
+              onClick={() => onPlayVideo?.(word)}
+              className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-[#F3E9FF] text-[#9B55E0] text-sm font-medium hover:bg-[#EADDFC] transition-colors"
             >
-              <PlayCircle className="w-4 h-4" />
-              <span>영상 보기</span>
+              <Play className="w-4 h-4" />
+              영상 보기
             </button>
-            
-            {/* 저장 취소 버튼 - 아이콘만 또는 텍스트 변경 */}
             <button
-              onClick={() => onUnsave(word)}
-              className="px-4 py-1.5 bg-green-50 text-green-700 rounded-full text-sm font-medium hover:bg-green-100 transition-colors flex items-center gap-1.5"
-              title="저장 취소"
+              type="button"
+              onClick={() => onToggleSave?.({ id, word, thumbnailUrl })}
+              className={`inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm font-medium transition-colors ${
+                isSaved
+                  ? 'bg-[#E0F5E7] text-[#2F9B59] hover:bg-[#D2EEDC]'
+                  : 'bg-[#EEF1F4] text-[#5C6470] hover:bg-[#E3E6EA]'
+              }`}
             >
-              <Bookmark className="w-4 h-4 fill-current" />
-              <span>저장됨</span>
+              <Bookmark className={`w-4 h-4 ${isSaved ? 'text-[#2F9B59] fill-current' : 'text-[#5C6470]'}`} />
+              {isSaved ? '저장됨' : '저장'}
             </button>
           </div>
         </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Volume2, Trash2 } from 'lucide-react';
 import Waveform from '../../components/Waveform';
 
