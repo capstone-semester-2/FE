@@ -41,6 +41,14 @@ export const clearAuthTokens = () => {
   storage?.removeItem(TOKEN_STORAGE_KEY);
 };
 
+export const getAccessToken = () => {
+  return getAuthTokens()?.result?.accessToken ?? null;
+};
+
+export const getUserId = () => {
+  return getAuthTokens()?.result?.userId ?? null;
+};
+
 export const hasAuthTokens = () => {
   const tokens = getAuthTokens();
   if (!tokens) {
@@ -91,6 +99,7 @@ export const exchangeKakaoCode = async ({ code, redirectUri }) => {
 
   const response = await fetch(`${baseUrl}/auth/kakao?${params.toString()}`, {
     method: 'POST',
+    credentials: 'include',
   });
 
   if (!response.ok) {

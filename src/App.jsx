@@ -9,7 +9,8 @@ import EncyclopediaScreen from './features/encyclopedia/EncyclopediaScreen';
 import SettingsModal from './features/settings/SettingsModal';
 import { BookmarkProvider } from './store/BookmarkContext';
 import useVoiceRecorder from './hooks/useVoiceRecorder';
-import { requestTranscription } from './services/transcription';
+import { requestPresignedUrl, uploadToPresignedUrl } from './services/fileUpload';
+import { connectVoiceStream, notifyUploadComplete } from './services/voiceAnalysis';
 
 
 function App() {
@@ -83,8 +84,22 @@ function App() {
       }
       setIsProcessing(true);
       const wavFile = new File([blob], `recording-${Date.now()}.wav`, { type: 'audio/wav' });
-      const { text } = await requestTranscription(wavFile);
-      setClarifiedText(text);
+
+      const { emitterId, waitForResult, cancel } = await connectVoiceStream();
+
+      try {
+        const { preSignedUrl, objectKey } = await requestPresignedUrl('wav');
+        await uploadToPresignedUrl(preSignedUrl, wavFile);
+        await notifyUploadComplete({ objectKey, emitterId });
+        const analysisResult = await waitForResult;
+        const text =
+          analysisResult?.text ||
+          analysisResult?.message ||
+          '분석 결과를 받아오지 못했습니다.';
+        setClarifiedText(text);
+      } finally {
+        cancel?.();
+      }
       setIsProcessing(false);
       setIsPreparingRecording(false);
       setRecorderError('');
