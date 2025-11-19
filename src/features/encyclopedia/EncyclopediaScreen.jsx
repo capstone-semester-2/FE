@@ -83,8 +83,13 @@ const EncyclopediaScreen = () => {
     setSearchTerm(event.target.value);
   };
 
-  const handleToggleSave = (item) => {
-    toggleSavedItem(item);
+  const handleToggleSave = async (item) => {
+    try {
+      await toggleSavedItem(item);
+    } catch (error) {
+      console.error(error);
+      alert(error.message || '북마크 저장에 실패했습니다.');
+    }
   };
 
   const emptyStateVisible = !isLoading && displayedItems.length === 0;
