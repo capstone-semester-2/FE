@@ -1,5 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createBookmark } from '../services/bookmarks';
 
 const BookmarkContext = createContext(null);
 
@@ -12,15 +13,32 @@ const initialSavedItems = [
 export const BookmarkProvider = ({ children }) => {
   const [savedItems, setSavedItems] = useState(initialSavedItems);
 
-  const toggleSavedItem = useCallback((item) => {
-    setSavedItems((prev) => {
-      const exists = prev.some((saved) => saved.id === item.id);
-      if (exists) {
-        return prev.filter((saved) => saved.id !== item.id);
+  const toggleSavedItem = useCallback(
+    async (item) => {
+      if (!item?.id) {
+        throw new Error('dictionaryId가 필요합니다.');
       }
-      return [...prev, item];
-    });
-  }, []);
+
+      const exists = savedItems.some((saved) => saved.id === item.id);
+
+      if (exists) {
+        setSavedItems((prev) => prev.filter((saved) => saved.id !== item.id));
+        return { isSaved: false };
+      }
+
+      const result = await createBookmark(item.id);
+
+      setSavedItems((prev) => {
+        if (prev.some((saved) => saved.id === item.id)) {
+          return prev;
+        }
+        return [...prev, { ...item, bookmarkId: result?.bookMarkId }];
+      });
+
+      return { isSaved: true, bookmarkId: result?.bookMarkId };
+    },
+    [savedItems],
+  );
 
   const removeSavedItem = useCallback((id) => {
     setSavedItems((prev) => prev.filter((item) => item.id !== id));
