@@ -27,7 +27,7 @@ export const connectVoiceStream = () => {
     return Promise.reject(new Error('이 브라우저는 실시간 분석을 지원하지 않습니다.'));
   }
 
-  const url = new URL('/voices/stream', API_BASE_URL);
+  const url = new URL('voices/stream', API_BASE_URL);
 
   return new Promise((resolve, reject) => {
     const eventSource = new EventSource(url.toString(), { withCredentials: true });
@@ -90,7 +90,8 @@ export const notifyUploadComplete = async ({ objectKey, emitterId }) => {
     headers.set('Authorization', `Bearer ${accessToken}`);
   }
 
-  const response = await fetch(`${API_BASE_URL}/voice/upload-complete`, {
+  const uploadCompleteUrl = new URL('voice/upload-complete', API_BASE_URL);
+  const response = await fetch(uploadCompleteUrl.toString(), {
     method: 'POST',
     credentials: 'include',
     headers,

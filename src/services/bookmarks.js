@@ -27,7 +27,7 @@ export const createBookmark = async (dictionaryId) => {
     throw new Error('dictionaryId가 필요합니다.');
   }
 
-  const url = new URL('/bookmark', API_BASE_URL);
+  const url = new URL('bookmark', API_BASE_URL);
   url.searchParams.set('dictionaryId', dictionaryId);
 
   const headers = new Headers();
