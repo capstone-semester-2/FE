@@ -1,3 +1,5 @@
+import { getAccessToken } from './auth';
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const assertApiBaseUrl = () => {
@@ -30,6 +32,7 @@ export const connectVoiceStream = () => {
   return new Promise((resolve, reject) => {
     const eventSource = new EventSource(url.toString(), { withCredentials: true });
     let isResolved = false;
+    let hasErrored = false;
 
     const cleanup = () => {
       eventSource.close();
@@ -62,6 +65,15 @@ export const connectVoiceStream = () => {
       isResolved = true;
       resolve({ emitterId, waitForResult: resultPromise, cancel: cleanup });
     });
+
+    eventSource.addEventListener('error', () => {
+      if (hasErrored || isResolved) {
+        return;
+      }
+      hasErrored = true;
+      cleanup();
+      reject(new Error('AI 분석 채널에 연결하지 못했습니다. 네트워크 상태를 확인해주세요.'));
+    });
   });
 };
 
@@ -72,12 +84,16 @@ export const notifyUploadComplete = async ({ objectKey, emitterId }) => {
     throw new Error('업로드 완료 알림에 필요한 정보가 누락되었습니다.');
   }
 
+  const headers = new Headers({ 'Content-Type': 'application/json' });
+  const accessToken = getAccessToken();
+  if (accessToken) {
+    headers.set('Authorization', `Bearer ${accessToken}`);
+  }
+
   const response = await fetch(`${API_BASE_URL}/voice/upload-complete`, {
     method: 'POST',
     credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers,
     body: JSON.stringify({ objectKey, emitterId }),
   });
 

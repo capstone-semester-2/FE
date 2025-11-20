@@ -42,7 +42,16 @@ export const clearAuthTokens = () => {
 };
 
 export const getAccessToken = () => {
-  return getAuthTokens()?.result?.accessToken ?? null;
+  const tokens = getAuthTokens();
+  if (!tokens) {
+    return null;
+  }
+
+  if (tokens.accessToken) {
+    return tokens.accessToken;
+  }
+
+  return tokens.result?.accessToken ?? null;
 };
 
 export const getUserId = () => {
