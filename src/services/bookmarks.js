@@ -8,7 +8,10 @@ const assertApiBaseUrl = () => {
   }
 };
 
-const extractErrorMessage = async (response) => {
+const extractErrorMessage = async (
+  response,
+  fallbackMessage = '북마크 요청에 실패했습니다. 잠시 후 다시 시도해주세요.',
+) => {
   try {
     const payload = await response.json();
     if (payload?.message) {
@@ -17,7 +20,7 @@ const extractErrorMessage = async (response) => {
   } catch (error) {
     console.error('Failed to parse bookmark error payload', error);
   }
-  return '북마크 저장에 실패했습니다. 잠시 후 다시 시도해주세요.';
+  return fallbackMessage;
 };
 
 export const createBookmark = async (dictionaryId) => {
@@ -45,10 +48,52 @@ export const createBookmark = async (dictionaryId) => {
   });
 
   if (!response.ok) {
-    const message = await extractErrorMessage(response);
+    const message = await extractErrorMessage(
+      response,
+      '북마크 저장에 실패했습니다. 잠시 후 다시 시도해주세요.',
+    );
     throw new Error(message);
   }
 
   const payload = await response.json().catch(() => ({}));
   return payload?.result ?? {};
+};
+
+export const fetchBookmarkList = async ({ lastId, size = 20 } = {}) => {
+  assertApiBaseUrl();
+
+  const url = new URL('bookmark/list', API_BASE_URL);
+
+  if (lastId !== undefined && lastId !== null) {
+    url.searchParams.set('lastId', lastId);
+  }
+
+  if (size !== undefined && size !== null) {
+    url.searchParams.set('size', size);
+  }
+
+  const headers = new Headers();
+  headers.set('Accept', 'application/json');
+
+  const accessToken = getAccessToken();
+  if (accessToken) {
+    headers.set('Authorization', `Bearer ${accessToken}`);
+  }
+
+  const response = await fetch(url.toString(), {
+    method: 'GET',
+    credentials: 'include',
+    headers,
+  });
+
+  if (!response.ok) {
+    const message = await extractErrorMessage(
+      response,
+      '북마크 목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.',
+    );
+    throw new Error(message);
+  }
+
+  const payload = await response.json().catch(() => ({}));
+  return Array.isArray(payload?.result) ? payload.result : [];
 };

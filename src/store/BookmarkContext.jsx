@@ -1,17 +1,39 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
-import { createBookmark } from '../services/bookmarks';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createBookmark, fetchBookmarkList } from '../services/bookmarks';
 
 const BookmarkContext = createContext(null);
 
-const initialSavedItems = [
-  { id: 1, word: '안녕하세요' },
-  { id: 2, word: '감사합니다' },
-  { id: 3, word: '반갑습니다' },
-];
+const initialSavedItems = [];
 
 export const BookmarkProvider = ({ children }) => {
   const [savedItems, setSavedItems] = useState(initialSavedItems);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    fetchBookmarkList()
+      .then((items) => {
+        if (!isMounted) {
+          return;
+        }
+        const normalized = items
+          .map((item) => ({
+            id: item?.id ?? item?.bookmarkId ?? item?.bookMarkId,
+            word: item?.gestureName ?? item?.name ?? '',
+            thumbnailUrl: item?.gestureUrl ?? item?.thumbnailUrl,
+          }))
+          .filter((item) => item.id && item.word);
+        setSavedItems(normalized);
+      })
+      .catch((error) => {
+        console.error('Failed to load bookmarks', error);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const toggleSavedItem = useCallback(
     async (item) => {
