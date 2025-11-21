@@ -21,13 +21,27 @@ const parseJson = (raw) => {
 };
 
 export const connectVoiceStream = () => {
+  
   assertApiBaseUrl();
+
+  const raw = localStorage.getItem("revoice_auth_tokens");
+  if (!raw) return Promise.reject("로그인이 필요합니다.");
+
+  const parsed = JSON.parse(raw);
+  const accessToken = parsed?.result?.accessToken;
+
+
+  if (!accessToken) {
+    return Promise.reject(new Error("로그인이 필요합니다."));
+  }
 
   if (typeof window === 'undefined' || !window.EventSource) {
     return Promise.reject(new Error('이 브라우저는 실시간 분석을 지원하지 않습니다.'));
   }
 
-  const url = new URL('voices/stream', API_BASE_URL);
+  const url = new URL('/api/voices/stream', API_BASE_URL);
+  url.searchParams.append("accessToken", accessToken);
+
 
   return new Promise((resolve, reject) => {
     const eventSource = new EventSource(url.toString(), { withCredentials: true });
@@ -41,6 +55,7 @@ export const connectVoiceStream = () => {
     const resultPromise = new Promise((resolveResult, rejectResult) => {
       eventSource.addEventListener('complete', (event) => {
         const data = parseJson(event.data);
+        console.log(data)
         cleanup();
         resolveResult(data);
       });
@@ -55,6 +70,9 @@ export const connectVoiceStream = () => {
       if (isResolved) {
         return;
       }
+
+      console.log("sse 연결완료");
+
       const data = parseJson(event.data);
       const emitterId = data.emitterId || data.id || data.emitterID || event.data;
       if (!emitterId) {
@@ -80,23 +98,40 @@ export const connectVoiceStream = () => {
 export const notifyUploadComplete = async ({ objectKey, emitterId }) => {
   assertApiBaseUrl();
 
+  const raw = localStorage.getItem("revoice_auth_tokens");
+  if (!raw) return Promise.reject("로그인이 필요합니다.");
+
+  const parsed = JSON.parse(raw);
+  const accessToken = parsed?.result?.accessToken;
+
+
+  if (!accessToken) {
+    return Promise.reject(new Error("로그인이 필요합니다."));
+  }
+
   if (!objectKey || !emitterId) {
     throw new Error('업로드 완료 알림에 필요한 정보가 누락되었습니다.');
   }
 
-  const headers = new Headers({ 'Content-Type': 'application/json' });
-  const accessToken = getAccessToken();
-  if (accessToken) {
-    headers.set('Authorization', `Bearer ${accessToken}`);
-  }
-
-  const uploadCompleteUrl = new URL('voice/upload-complete', API_BASE_URL);
-  const response = await fetch(uploadCompleteUrl.toString(), {
+  const response = await fetch(`${API_BASE_URL}/api/voices/upload-complete`, {    
     method: 'POST',
     credentials: 'include',
-    headers,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`
+    },
     body: JSON.stringify({ objectKey, emitterId }),
   });
+
+
+  // raw response
+  console.log("raw response:", response);
+
+// body 확인
+  const json = await response.clone().json().catch(() => ({}));
+
+  console.log("parsed json:", json);
+  console.log("upload-complete message:", json?.result?.message)
 
   if (!response.ok) {
     throw new Error('AI 분석을 시작하지 못했습니다. 잠시 후 다시 시도해주세요.');

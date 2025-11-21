@@ -106,7 +106,7 @@ export const exchangeKakaoCode = async ({ code, redirectUri }) => {
     redirectUri,
   });
 
-  const response = await fetch(`${baseUrl}/auth/kakao?${params.toString()}`, {
+  const response = await fetch(`${baseUrl}/api/auth/kakao?${params.toString()}`, {
     method: 'POST',
     credentials: 'include',
   });
