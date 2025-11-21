@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Star, X } from 'lucide-react';
 import FrequentWordItem from './FrequentWordItem';
 import SavedSignLanguageItem from './SavedSignLanguageItem';
@@ -11,18 +11,11 @@ const FREQUENT_WORDS = [
 ];
 
 const BookmarkScreen = () => {
-  const { savedItems, removeSavedItem } = useBookmarkContext();
+  const { savedItems, removeSavedItem, loadMore, isLoading, hasMore } = useBookmarkContext();
 
   const [showUnsaveModal, setShowUnsaveModal] = useState(false);
   const [pendingItem, setPendingItem] = useState(null);
-
-  const sortedSavedItems = useMemo(
-    () =>
-      [...savedItems].sort((a, b) =>
-        a.word.localeCompare(b.word, 'ko', { sensitivity: 'base' }),
-      ),
-    [savedItems],
-  );
+  const sentinelRef = useRef(null);
 
   const handlePlayWord = (word) => {
     console.log(`Playing audio for: ${word}`);
@@ -49,6 +42,28 @@ const BookmarkScreen = () => {
     setPendingItem(null);
     setShowUnsaveModal(false);
   };
+
+  useEffect(() => {
+    if (!hasMore || isLoading) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          loadMore();
+        }
+      },
+      { threshold: 0.3 },
+    );
+
+    const current = sentinelRef.current;
+    if (current) {
+      observer.observe(current);
+    }
+
+    return () => observer.disconnect();
+  }, [hasMore, isLoading, loadMore]);
 
   return (
     <div className="flex-1 overflow-auto pb-24 bg-gray-50">
@@ -77,9 +92,9 @@ const BookmarkScreen = () => {
           </div>
         </section>
 
-        {sortedSavedItems.length > 0 ? (
+        {savedItems.length > 0 ? (
           <section className="space-y-4">
-            {sortedSavedItems.map((item) => (
+            {savedItems.map((item) => (
               <SavedSignLanguageItem
                 key={item.id}
                 id={item.id}
@@ -90,7 +105,17 @@ const BookmarkScreen = () => {
                 isSaved
               />
             ))}
+            <div ref={sentinelRef} />
+            {isLoading && (
+              <div className="flex justify-center py-4">
+                <div className="w-7 h-7 border-2 border-[#7B61FF] border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
           </section>
+        ) : isLoading ? (
+          <div className="flex justify-center py-20">
+            <div className="w-10 h-10 border-2 border-[#7B61FF] border-t-transparent rounded-full animate-spin" />
+          </div>
         ) : (
           <div className="text-center py-20">
             <div className="w-24 h-24 bg-[#E6E9FF] rounded-full flex items-center justify-center mx-auto mb-4">
