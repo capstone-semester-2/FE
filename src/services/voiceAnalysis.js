@@ -1,5 +1,3 @@
-import { getAccessToken } from './auth';
-
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const assertApiBaseUrl = () => {
@@ -39,7 +37,7 @@ export const connectVoiceStream = () => {
     return Promise.reject(new Error('이 브라우저는 실시간 분석을 지원하지 않습니다.'));
   }
 
-  const url = new URL('/api/voices/stream', API_BASE_URL);
+  const url = new URL('voices/stream', API_BASE_URL);
   url.searchParams.append("accessToken", accessToken);
 
 
@@ -113,7 +111,7 @@ export const notifyUploadComplete = async ({ objectKey, emitterId }) => {
     throw new Error('업로드 완료 알림에 필요한 정보가 누락되었습니다.');
   }
 
-  const response = await fetch(`${API_BASE_URL}/api/voices/upload-complete`, {    
+  const response = await fetch(`${API_BASE_URL}voices/upload-complete`, {    
     method: 'POST',
     credentials: 'include',
     headers: {
