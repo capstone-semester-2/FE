@@ -3,8 +3,9 @@ import { Star, X } from 'lucide-react';
 import FrequentWordItem from './FrequentWordItem';
 import SavedSignLanguageItem from './SavedSignLanguageItem';
 import { useBookmarkContext } from '../../store/BookmarkContext';
+import { fetchTranslatedTextTop3 } from '../../services/translatedText';
 
-const FREQUENT_WORDS = [
+const DEFAULT_FREQUENT_WORDS = [
   { id: 1, rank: 1, word: '안녕하세요', count: '15회 사용' },
   { id: 2, rank: 2, word: '감사합니다', count: '12회 사용' },
   { id: 3, rank: 3, word: '좋습니다', count: '8회 사용' },
@@ -15,6 +16,8 @@ const BookmarkScreen = () => {
 
   const [showUnsaveModal, setShowUnsaveModal] = useState(false);
   const [pendingItem, setPendingItem] = useState(null);
+  const [frequentWords, setFrequentWords] = useState([]);
+  const [isTopLoading, setIsTopLoading] = useState(false);
   const sentinelRef = useRef(null);
 
   const handlePlayWord = (word) => {
@@ -42,6 +45,31 @@ const BookmarkScreen = () => {
     setPendingItem(null);
     setShowUnsaveModal(false);
   };
+
+  useEffect(() => {
+    const loadTop3 = async () => {
+      setIsTopLoading(true);
+      try {
+        const items = await fetchTranslatedTextTop3();
+        const normalized = items
+          .map((item, index) => ({
+            id: item?.id ?? item?.voiceId ?? `top-${index}`,
+            rank: index + 1,
+            word: item?.content ?? item?.translatedText ?? item?.text ?? '',
+            count: item?.count ? `${item.count}회 사용` : '',
+          }))
+          .filter((item) => item.word);
+        setFrequentWords(normalized);
+      } catch (error) {
+        console.error(error);
+        setFrequentWords([]);
+      } finally {
+        setIsTopLoading(false);
+      }
+    };
+
+    loadTop3();
+  }, []);
 
   useEffect(() => {
     if (!hasMore || isLoading) {
@@ -75,21 +103,30 @@ const BookmarkScreen = () => {
             </div>
             <div className="text-left">
               <h2 className="text-xl font-semibold text-gray-900">내가 자주 사용한 단어</h2>
-              <p className="text-sm text-gray-400 mt-1">클릭하면 수어 영상을 볼 수 있어요</p>
+              <p className="text-sm text-gray-400 mt-1">
+                {isTopLoading ? '불러오는 중...' : '클릭하면 수어 영상을 볼 수 있어요'}
+              </p>
             </div>
           </header>
 
-          <div className="space-y-3">
-            {FREQUENT_WORDS.map((item) => (
-              <FrequentWordItem
-                key={item.id}
-                rank={item.rank}
-                word={item.word}
-                count={item.count}
-                onPlay={handlePlayWord}
-              />
-            ))}
-          </div>
+          {frequentWords.length === 0 ? (
+            <div className="border border-dashed border-gray-200 bg-gray-50 rounded-2xl px-4 py-8 text-center">
+              <p className="text-gray-800 font-semibold mb-2">아직 기록된 단어가 없어요</p>
+              <p className="text-gray-400 text-sm">대화를 많이 할수록 나만의 단어장이 만들어져요!</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {frequentWords.map((item) => (
+                <FrequentWordItem
+                  key={item.id}
+                  rank={item.rank}
+                  word={item.word}
+                  count={item.count}
+                  onPlay={handlePlayWord}
+                />
+              ))}
+            </div>
+          )}
         </section>
 
         {savedItems.length > 0 ? (
