@@ -137,3 +137,48 @@ export const notifyUploadComplete = async ({ objectKey, emitterId }) => {
 
   return response.json().catch(() => undefined);
 };
+
+export const deleteVoiceRecord = async (voiceId) => {
+  assertApiBaseUrl();
+
+  if (voiceId === undefined || voiceId === null) {
+    throw new Error('voiceId가 필요합니다.');
+  }
+
+  const raw = localStorage.getItem("revoice_auth_tokens");
+  if (!raw) return Promise.reject("로그인이 필요합니다.");
+
+  const parsed = JSON.parse(raw);
+  const accessToken = parsed?.result?.accessToken;
+
+  if (!accessToken) {
+    return Promise.reject(new Error("로그인이 필요합니다."));
+  }
+
+  const url = new URL(`voices/${voiceId}`, API_BASE_URL);
+
+  const response = await fetch(url.toString(), {
+    method: 'DELETE',
+    credentials: 'include',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    let message = '음성 기록 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.';
+
+    try {
+      const errorPayload = await response.json();
+      if (errorPayload?.message) {
+        message = errorPayload.message;
+      }
+    } catch (error) {
+      console.error('Failed to parse delete voice error payload', error);
+    }
+
+    throw new Error(message);
+  }
+
+  return true;
+};
