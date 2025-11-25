@@ -1,17 +1,77 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
-import { createBookmark } from '../services/bookmarks';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { createBookmark, fetchBookmarkList } from '../services/bookmarks';
 
 const BookmarkContext = createContext(null);
 
-const initialSavedItems = [
-  { id: 1, word: '안녕하세요' },
-  { id: 2, word: '감사합니다' },
-  { id: 3, word: '반갑습니다' },
-];
+const initialSavedItems = [];
+
+const normalizeBookmark = (item) => ({
+  id: item?.id ?? item?.bookmarkId ?? item?.bookMarkId,
+  word: item?.gestureName ?? item?.name ?? '',
+  thumbnailUrl: item?.gestureUrl ?? item?.thumbnailUrl,
+});
 
 export const BookmarkProvider = ({ children }) => {
   const [savedItems, setSavedItems] = useState(initialSavedItems);
+  const [cursor, setCursor] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const hasLoadedInitial = useRef(false);
+
+  const loadMore = useCallback(async () => {
+    if (isLoading || !hasMore) {
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const items = await fetchBookmarkList({
+        lastId: cursor ?? undefined,
+        size: 20,
+      });
+
+      const normalized = items.map(normalizeBookmark).filter((item) => item.id && item.word);
+
+      setSavedItems((prev) => {
+        const existingIds = new Set(prev.map((item) => item.id));
+        const deduped = normalized.filter((item) => !existingIds.has(item.id));
+        return [...prev, ...deduped];
+      });
+
+      if (items.length === 0) {
+        setHasMore(false);
+        return;
+      }
+
+      const nextCursor = items[items.length - 1]?.id ?? null;
+      if (nextCursor === null || nextCursor === cursor) {
+        setHasMore(false);
+        return;
+      }
+      setCursor(nextCursor);
+    } catch (error) {
+      console.error('Failed to load bookmarks', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [cursor, hasMore, isLoading]);
+
+  useEffect(() => {
+    if (hasLoadedInitial.current) {
+      return;
+    }
+    hasLoadedInitial.current = true;
+    loadMore();
+  }, [loadMore]);
 
   const toggleSavedItem = useCallback(
     async (item) => {
@@ -52,11 +112,14 @@ export const BookmarkProvider = ({ children }) => {
   const contextValue = useMemo(
     () => ({
       savedItems,
+      isLoading,
+      hasMore,
+      loadMore,
       toggleSavedItem,
       removeSavedItem,
       isSaved,
     }),
-    [savedItems, toggleSavedItem, removeSavedItem, isSaved],
+    [hasMore, isLoading, isSaved, loadMore, removeSavedItem, savedItems, toggleSavedItem],
   );
 
   return <BookmarkContext.Provider value={contextValue}>{children}</BookmarkContext.Provider>;

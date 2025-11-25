@@ -1,28 +1,24 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Star, X } from 'lucide-react';
 import FrequentWordItem from './FrequentWordItem';
 import SavedSignLanguageItem from './SavedSignLanguageItem';
 import { useBookmarkContext } from '../../store/BookmarkContext';
+import { fetchTranslatedTextTop3 } from '../../services/translatedText';
 
-const FREQUENT_WORDS = [
+const DEFAULT_FREQUENT_WORDS = [
   { id: 1, rank: 1, word: '안녕하세요', count: '15회 사용' },
   { id: 2, rank: 2, word: '감사합니다', count: '12회 사용' },
   { id: 3, rank: 3, word: '좋습니다', count: '8회 사용' },
 ];
 
 const BookmarkScreen = () => {
-  const { savedItems, removeSavedItem } = useBookmarkContext();
+  const { savedItems, removeSavedItem, loadMore, isLoading, hasMore } = useBookmarkContext();
 
   const [showUnsaveModal, setShowUnsaveModal] = useState(false);
   const [pendingItem, setPendingItem] = useState(null);
-
-  const sortedSavedItems = useMemo(
-    () =>
-      [...savedItems].sort((a, b) =>
-        a.word.localeCompare(b.word, 'ko', { sensitivity: 'base' }),
-      ),
-    [savedItems],
-  );
+  const [frequentWords, setFrequentWords] = useState([]);
+  const [isTopLoading, setIsTopLoading] = useState(false);
+  const sentinelRef = useRef(null);
 
   const handlePlayWord = (word) => {
     console.log(`Playing audio for: ${word}`);
@@ -50,6 +46,53 @@ const BookmarkScreen = () => {
     setShowUnsaveModal(false);
   };
 
+  useEffect(() => {
+    const loadTop3 = async () => {
+      setIsTopLoading(true);
+      try {
+        const items = await fetchTranslatedTextTop3();
+        const normalized = items
+          .map((item, index) => ({
+            id: item?.id ?? item?.voiceId ?? `top-${index}`,
+            rank: index + 1,
+            word: item?.content ?? item?.translatedText ?? item?.text ?? '',
+            count: item?.count ? `${item.count}회 사용` : '',
+          }))
+          .filter((item) => item.word);
+        setFrequentWords(normalized);
+      } catch (error) {
+        console.error(error);
+        setFrequentWords([]);
+      } finally {
+        setIsTopLoading(false);
+      }
+    };
+
+    loadTop3();
+  }, []);
+
+  useEffect(() => {
+    if (!hasMore || isLoading) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          loadMore();
+        }
+      },
+      { threshold: 0.3 },
+    );
+
+    const current = sentinelRef.current;
+    if (current) {
+      observer.observe(current);
+    }
+
+    return () => observer.disconnect();
+  }, [hasMore, isLoading, loadMore]);
+
   return (
     <div className="flex-1 overflow-auto pb-24 bg-gray-50">
       <div className="px-5 pt-6 pb-10 space-y-8">
@@ -60,26 +103,35 @@ const BookmarkScreen = () => {
             </div>
             <div className="text-left">
               <h2 className="text-xl font-semibold text-gray-900">내가 자주 사용한 단어</h2>
-              <p className="text-sm text-gray-400 mt-1">클릭하면 수어 영상을 볼 수 있어요</p>
+              <p className="text-sm text-gray-400 mt-1">
+                {isTopLoading ? '불러오는 중...' : '클릭하면 수어 영상을 볼 수 있어요'}
+              </p>
             </div>
           </header>
 
-          <div className="space-y-3">
-            {FREQUENT_WORDS.map((item) => (
-              <FrequentWordItem
-                key={item.id}
-                rank={item.rank}
-                word={item.word}
-                count={item.count}
-                onPlay={handlePlayWord}
-              />
-            ))}
-          </div>
+          {frequentWords.length === 0 ? (
+            <div className="border border-dashed border-gray-200 bg-gray-50 rounded-2xl px-4 py-8 text-center">
+              <p className="text-gray-800 font-semibold mb-2">아직 기록된 단어가 없어요</p>
+              <p className="text-gray-400 text-sm">대화를 많이 할수록 나만의 단어장이 만들어져요!</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {frequentWords.map((item) => (
+                <FrequentWordItem
+                  key={item.id}
+                  rank={item.rank}
+                  word={item.word}
+                  count={item.count}
+                  onPlay={handlePlayWord}
+                />
+              ))}
+            </div>
+          )}
         </section>
 
-        {sortedSavedItems.length > 0 ? (
+        {savedItems.length > 0 ? (
           <section className="space-y-4">
-            {sortedSavedItems.map((item) => (
+            {savedItems.map((item) => (
               <SavedSignLanguageItem
                 key={item.id}
                 id={item.id}
@@ -90,7 +142,17 @@ const BookmarkScreen = () => {
                 isSaved
               />
             ))}
+            <div ref={sentinelRef} />
+            {isLoading && (
+              <div className="flex justify-center py-4">
+                <div className="w-7 h-7 border-2 border-[#7B61FF] border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
           </section>
+        ) : isLoading ? (
+          <div className="flex justify-center py-20">
+            <div className="w-10 h-10 border-2 border-[#7B61FF] border-t-transparent rounded-full animate-spin" />
+          </div>
         ) : (
           <div className="text-center py-20">
             <div className="w-24 h-24 bg-[#E6E9FF] rounded-full flex items-center justify-center mx-auto mb-4">

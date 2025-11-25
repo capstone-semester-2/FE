@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { clearAuthTokens, exchangeKakaoCode, saveAuthTokens } from '../services/auth';
 
+let kakaoLoginPromise = null; // Share the same exchange call across StrictMode double mounts.
+
 const KakaoCallback = ({ onSuccess }) => {
   const [status, setStatus] = useState('loading');
   const [errorMessage, setErrorMessage] = useState('');
@@ -22,14 +24,21 @@ const KakaoCallback = ({ onSuccess }) => {
       return;
     }
 
+    if (!kakaoLoginPromise) {
+      kakaoLoginPromise = exchangeKakaoCode({ code, redirectUri });
+    }
+
+    let isActive = true;
+
     const login = async () => {
-      setStatus('loading');
       try {
-        const tokens = await exchangeKakaoCode({ code, redirectUri });
+        const tokens = await kakaoLoginPromise;
+        if (!isActive) return;
         saveAuthTokens(tokens);
         window.history.replaceState(null, '', '/');
         onSuccess?.();
       } catch (error) {
+        if (!isActive) return;
         setErrorMessage(error.message || '카카오 로그인에 실패했습니다.');
         setStatus('error');
         clearAuthTokens();
@@ -37,6 +46,9 @@ const KakaoCallback = ({ onSuccess }) => {
     };
 
     login();
+    return () => {
+      isActive = false;
+    };
   }, [onSuccess]);
 
   if (status === 'loading') {

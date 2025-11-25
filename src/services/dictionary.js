@@ -8,30 +8,28 @@ const assertApiBaseUrl = () => {
   }
 };
 
-const extractErrorMessage = async (
-  response,
-  fallbackMessage = '북마크 요청에 실패했습니다. 잠시 후 다시 시도해주세요.',
-) => {
+const extractErrorMessage = async (response, fallbackMessage) => {
   try {
     const payload = await response.json();
     if (payload?.message) {
       return payload.message;
     }
   } catch (error) {
-    console.error('Failed to parse bookmark error payload', error);
+    console.error('Failed to parse dictionary error payload', error);
   }
   return fallbackMessage;
 };
 
-export const createBookmark = async (dictionaryId) => {
+export const searchDictionary = async (keyword) => {
   assertApiBaseUrl();
 
-  if (typeof dictionaryId === 'undefined' || dictionaryId === null) {
-    throw new Error('dictionaryId가 필요합니다.');
+  const trimmed = keyword?.trim();
+  if (!trimmed) {
+    return [];
   }
 
-  const url = new URL('bookmark', API_BASE_URL);
-  url.searchParams.set('dictionaryId', dictionaryId);
+  const url = new URL('dictionary/search', API_BASE_URL);
+  url.searchParams.set('keyword', trimmed);
 
   const headers = new Headers();
   headers.set('Accept', 'application/json');
@@ -42,7 +40,7 @@ export const createBookmark = async (dictionaryId) => {
   }
 
   const response = await fetch(url.toString(), {
-    method: 'POST',
+    method: 'GET',
     credentials: 'include',
     headers,
   });
@@ -50,19 +48,19 @@ export const createBookmark = async (dictionaryId) => {
   if (!response.ok) {
     const message = await extractErrorMessage(
       response,
-      '북마크 저장에 실패했습니다. 잠시 후 다시 시도해주세요.',
+      '수화 사전 검색에 실패했습니다. 잠시 후 다시 시도해주세요.',
     );
     throw new Error(message);
   }
 
   const payload = await response.json().catch(() => ({}));
-  return payload?.result ?? {};
+  return Array.isArray(payload?.result) ? payload.result : [];
 };
 
-export const fetchBookmarkList = async ({ lastId, size = 20 } = {}) => {
+export const fetchDictionaryList = async ({ lastId, size = 20 } = {}) => {
   assertApiBaseUrl();
 
-  const url = new URL('bookmark/list', API_BASE_URL);
+  const url = new URL('dictionary/list', API_BASE_URL);
 
   if (lastId !== undefined && lastId !== null) {
     url.searchParams.set('lastId', lastId);
@@ -89,7 +87,7 @@ export const fetchBookmarkList = async ({ lastId, size = 20 } = {}) => {
   if (!response.ok) {
     const message = await extractErrorMessage(
       response,
-      '북마크 목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.',
+      '수화 사전 목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.',
     );
     throw new Error(message);
   }

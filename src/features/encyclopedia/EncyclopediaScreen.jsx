@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Search } from 'lucide-react';
 import SavedSignLanguageItem from '../bookmarks/SavedSignLanguageItem';
 import { useBookmarkContext } from '../../store/BookmarkContext';
+import { searchDictionary } from '../../services/dictionary';
 
 const MOCK_ENTRIES = [
   { id: 101, word: '안녕하세요' },
@@ -22,36 +23,75 @@ const EncyclopediaScreen = () => {
   const [displayedItems, setDisplayedItems] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [error, setError] = useState('');
 
   const observerRef = useRef(null);
   const sentinelRef = useRef(null);
+  const debounceRef = useRef(null);
 
-  const filteredItems = useMemo(() => {
+  useEffect(() => {
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     const trimmed = searchTerm.trim();
-    if (!trimmed) {
-      return MOCK_ENTRIES;
+    setError('');
+
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
     }
-    return MOCK_ENTRIES.filter((item) => item.word.includes(trimmed));
-  }, [searchTerm]);
 
-  useEffect(() => {
-    setPage(1);
-  }, [filteredItems]);
+    // 검색어 없으면 기본 목록 + 무한스크롤 유지
+    if (!trimmed) {
+      setIsLoading(true);
+      const timer = setTimeout(() => {
+        const nextItems = MOCK_ENTRIES.slice(0, page * ITEMS_PER_PAGE);
+        setDisplayedItems(nextItems);
+        setHasMore(nextItems.length < MOCK_ENTRIES.length);
+        setIsLoading(false);
+      }, 120);
+      return () => clearTimeout(timer);
+    }
 
-  useEffect(() => {
+    // 검색 시 API 호출 (디바운스)
     setIsLoading(true);
-    const timer = setTimeout(() => {
-      const nextItems = filteredItems.slice(0, page * ITEMS_PER_PAGE);
-      setDisplayedItems(nextItems);
-      setHasMore(nextItems.length < filteredItems.length);
-      setIsLoading(false);
-    }, 250);
+    setHasMore(false);
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const items = await searchDictionary(trimmed);
+        const normalized = items
+          .map((item) => ({
+            id: item?.id ?? item?.dictionaryId,
+            word: item?.gestureName ?? item?.name ?? '',
+            thumbnailUrl: item?.gestureUrl ?? item?.thumbnailUrl,
+          }))
+          .filter((item) => item.id && item.word);
+        setDisplayedItems(normalized);
+      } catch (err) {
+        console.error(err);
+        setError(err.message || '수화 사전 검색에 실패했습니다.');
+        setDisplayedItems([]);
+      } finally {
+        setIsLoading(false);
+      }
+    }, 300);
 
-    return () => clearTimeout(timer);
-  }, [filteredItems, page]);
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, [page, searchTerm]);
 
   useEffect(() => {
-    if (!hasMore || isLoading) {
+    if (searchTerm.trim() || !hasMore || isLoading) {
       if (observerRef.current) {
         observerRef.current.disconnect();
       }
@@ -77,10 +117,11 @@ const EncyclopediaScreen = () => {
         observerRef.current.disconnect();
       }
     };
-  }, [hasMore, isLoading]);
+  }, [hasMore, isLoading, searchTerm]);
 
   const handleSearchChange = (event) => {
     setSearchTerm(event.target.value);
+    setPage(1);
   };
 
   const handleToggleSave = async (item) => {
@@ -92,7 +133,7 @@ const EncyclopediaScreen = () => {
     }
   };
 
-  const emptyStateVisible = !isLoading && displayedItems.length === 0;
+  const emptyStateVisible = Boolean(searchTerm.trim()) && !isLoading && displayedItems.length === 0;
 
   return (
     <div className="flex-1 overflow-auto pb-24 bg-gray-50">
@@ -144,6 +185,11 @@ const EncyclopediaScreen = () => {
             {isLoading && (
               <div className="flex justify-center py-6">
                 <div className="w-8 h-8 border-2 border-[#7B61FF] border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
+            {error && (
+              <div className="text-center text-sm text-red-500 bg-red-50 border border-red-100 rounded-2xl px-4 py-3">
+                {error}
               </div>
             )}
           </div>

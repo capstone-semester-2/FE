@@ -37,13 +37,14 @@ export const connectVoiceStream = () => {
     return Promise.reject(new Error('이 브라우저는 실시간 분석을 지원하지 않습니다.'));
   }
 
-  const url = new URL('/api/voices/stream', API_BASE_URL);
+  const url = new URL('voices/stream', API_BASE_URL);
   url.searchParams.append("accessToken", accessToken);
 
 
   return new Promise((resolve, reject) => {
     const eventSource = new EventSource(url.toString(), { withCredentials: true });
     let isResolved = false;
+    let hasErrored = false;
 
     const cleanup = () => {
       eventSource.close();
@@ -80,6 +81,15 @@ export const connectVoiceStream = () => {
       isResolved = true;
       resolve({ emitterId, waitForResult: resultPromise, cancel: cleanup });
     });
+
+    eventSource.addEventListener('error', () => {
+      if (hasErrored || isResolved) {
+        return;
+      }
+      hasErrored = true;
+      cleanup();
+      reject(new Error('AI 분석 채널에 연결하지 못했습니다. 네트워크 상태를 확인해주세요.'));
+    });
   });
 };
 
@@ -101,7 +111,7 @@ export const notifyUploadComplete = async ({ objectKey, emitterId }) => {
     throw new Error('업로드 완료 알림에 필요한 정보가 누락되었습니다.');
   }
 
-  const response = await fetch(`${API_BASE_URL}/api/voices/upload-complete`, {    
+  const response = await fetch(`${API_BASE_URL}voices/upload-complete`, {    
     method: 'POST',
     credentials: 'include',
     headers: {
@@ -126,4 +136,100 @@ export const notifyUploadComplete = async ({ objectKey, emitterId }) => {
   }
 
   return response.json().catch(() => undefined);
+};
+
+export const fetchVoiceList = async ({ lastId, size = 5 } = {}) => {
+  assertApiBaseUrl();
+
+  const raw = localStorage.getItem("revoice_auth_tokens");
+  if (!raw) return Promise.reject("로그인이 필요합니다.");
+
+  const parsed = JSON.parse(raw);
+  const accessToken = parsed?.result?.accessToken;
+
+  if (!accessToken) {
+    return Promise.reject(new Error("로그인이 필요합니다."));
+  }
+
+  const url = new URL('voices', API_BASE_URL);
+  if (lastId !== undefined && lastId !== null) {
+    url.searchParams.set('lastId', lastId);
+  }
+  if (size !== undefined && size !== null) {
+    url.searchParams.set('size', size);
+  }
+
+  const response = await fetch(url.toString(), {
+    method: 'GET',
+    credentials: 'include',
+    headers: {
+      'Accept': 'application/json',
+      'Authorization': `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    let message = '음성 기록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.';
+    try {
+      const errorPayload = await response.json();
+      if (errorPayload?.message) {
+        message = errorPayload.message;
+      }
+    } catch (error) {
+      console.error('Failed to parse voice list error payload', error);
+    }
+    throw new Error(message);
+  }
+
+  const payload = await response.json().catch(() => ({}));
+  const result = payload?.result ?? {};
+  return {
+    totalCount: result.totalCount ?? 0,
+    voices: Array.isArray(result.voices) ? result.voices : [],
+  };
+};
+
+export const deleteVoiceRecord = async (voiceId) => {
+  assertApiBaseUrl();
+
+  if (voiceId === undefined || voiceId === null) {
+    throw new Error('voiceId가 필요합니다.');
+  }
+
+  const raw = localStorage.getItem("revoice_auth_tokens");
+  if (!raw) return Promise.reject("로그인이 필요합니다.");
+
+  const parsed = JSON.parse(raw);
+  const accessToken = parsed?.result?.accessToken;
+
+  if (!accessToken) {
+    return Promise.reject(new Error("로그인이 필요합니다."));
+  }
+
+  const url = new URL(`voices/${voiceId}`, API_BASE_URL);
+
+  const response = await fetch(url.toString(), {
+    method: 'DELETE',
+    credentials: 'include',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    let message = '음성 기록 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.';
+
+    try {
+      const errorPayload = await response.json();
+      if (errorPayload?.message) {
+        message = errorPayload.message;
+      }
+    } catch (error) {
+      console.error('Failed to parse delete voice error payload', error);
+    }
+
+    throw new Error(message);
+  }
+
+  return true;
 };

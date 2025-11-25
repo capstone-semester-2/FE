@@ -11,7 +11,7 @@ const assertApiBaseUrl = () => {
 export const requestPresignedUrl = async (extension = 'wav') => {
   assertApiBaseUrl();
 
-  const url = new URL('/api/generate-presigned-url', API_BASE_URL);
+  const url = new URL('generate-presigned-url', API_BASE_URL);
   url.searchParams.set('extension', extension);
 
   const headers = new Headers();
