@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import BottomNavBar from './components/BottomNavBar';
 import Header from './components/Header';
+import Toast from './components/Toast';
 import logo from './assets/logo.png';
 import RecordingControls from './features/recording/RecordingControls';
 import HistoryScreen from './features/history/HistoryScreen';
 import BookmarkScreen from './features/bookmarks/BookmarkScreen';
 import EncyclopediaScreen from './features/encyclopedia/EncyclopediaScreen';
 import SettingsModal from './features/settings/SettingsModal';
+import CustomVoiceTraining from './features/settings/CustomVoiceTraining';
 import { BookmarkProvider } from './store/BookmarkContext';
 import useVoiceRecorder from './hooks/useVoiceRecorder';
 import { requestPresignedUrl, uploadToPresignedUrl } from './services/fileUpload';
@@ -18,11 +20,22 @@ function App() {
   const [recordingTime, setRecordingTime] = useState(0);
   const timerRef = useRef(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isTrainingOpen, setIsTrainingOpen] = useState(false);
   const [clarifiedText, setClarifiedText] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [recorderError, setRecorderError] = useState('');
   const [isPreparingRecording, setIsPreparingRecording] = useState(false);
+  const [activeMode, setActiveMode] = useState('voice'); // 'voice' | 'listen'
+  const [ttsSettings, setTtsSettings] = useState({
+    voiceSpeed: 1,
+    fontSize: 18,
+    voiceGender: '남성',
+    aiModel: 'hearing',
+  });
+  const [customVoiceStatus, setCustomVoiceStatus] = useState('idle'); // idle | training | ready | failed
+  const [toast, setToast] = useState(null);
+  const toastTimerRef = useRef(null);
 
   const {
     error,
@@ -64,6 +77,33 @@ function App() {
   };
 
   const handleStartRecording = async () => {
+    setActiveMode('voice');
+    setClarifiedText('');
+    setRecorderError('');
+    setIsPreparingRecording(true);
+    try {
+      await startRecording();
+    } catch (err) {
+      setRecorderError(err.message || '마이크를 시작할 수 없습니다.');
+    } finally {
+      setIsPreparingRecording(false);
+    }
+  };
+
+  const handleListenPress = async () => {
+    // 녹음 중인데 보정용(voice) 모드일 때는 무시
+    if (isRecording && activeMode !== 'listen') {
+      return;
+    }
+
+    // 듣기 모드로 녹음 중이면 정지
+    if (isRecording && activeMode === 'listen') {
+      await handleStopRecording();
+      return;
+    }
+
+    // 듣기 모드로 새로 시작
+    setActiveMode('listen');
     setClarifiedText('');
     setRecorderError('');
     setIsPreparingRecording(true);
@@ -123,6 +163,27 @@ function App() {
     setIsSpeaking(false);
   }, []);
 
+  const pickVoice = useCallback((gender) => {
+    if (!window.speechSynthesis?.getVoices) {
+      return null;
+    }
+    const voices = window.speechSynthesis.getVoices() || [];
+    if (!voices.length) return null;
+
+    const femaleKeywords = ['female', 'girl', 'woman', 'salli', 'yuna', 'hana', 'mijin'];
+    const maleKeywords = ['male', 'man', 'boy', 'seoyeon', 'jisoo', 'taesoo', 'taeyang'];
+    const isFemale = gender === '여성';
+    const keywords = isFemale ? femaleKeywords : maleKeywords;
+
+    const koVoices = voices.filter((v) => (v.lang || '').toLowerCase().startsWith('ko'));
+    const byKeyword = (list) =>
+      list.find((v) =>
+        keywords.some((kw) => v.name.toLowerCase().includes(kw.toLowerCase()))
+      );
+
+    return byKeyword(koVoices) || koVoices[0] || byKeyword(voices) || voices[0];
+  }, []);
+
   const speakText = useCallback((text) => {
     if (!text || !window.speechSynthesis) {
       return;
@@ -130,11 +191,16 @@ function App() {
     stopSpeaking();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'ko-KR';
+    utterance.rate = ttsSettings.voiceSpeed || 1;
+    const voice = pickVoice(ttsSettings.voiceGender);
+    if (voice) {
+      utterance.voice = voice;
+    }
     setIsSpeaking(true);
     utterance.onend = () => setIsSpeaking(false);
     utterance.onerror = () => setIsSpeaking(false);
     window.speechSynthesis.speak(utterance);
-  }, [stopSpeaking]);
+  }, [pickVoice, stopSpeaking, ttsSettings.voiceGender, ttsSettings.voiceSpeed]);
 
   const handlePlayClarified = () => {
     if (isSpeaking) {
@@ -143,16 +209,44 @@ function App() {
     speakText(clarifiedText);
   };
 
+  const handleApplySettings = (settings) => {
+    setTtsSettings(settings);
+    setIsSettingsOpen(false);
+  };
+
+  const handleSelectQuickPhrase = (text) => {
+    setClarifiedText(text);
+    speakText(text);
+  };
+
+  const showToast = (message, type = 'info') => {
+    setToast({ message, type });
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+    }
+    toastTimerRef.current = setTimeout(() => {
+      setToast(null);
+      toastTimerRef.current = null;
+    }, 3200);
+  };
+
   useEffect(() => () => {
     stopSpeaking();
   }, [stopSpeaking]);
+
+  useEffect(() => {
+    if (customVoiceStatus === 'ready') {
+      setTtsSettings((prev) => ({ ...prev, aiModel: 'custom' }));
+      showToast('내 목소리 모델이 준비되어 자동 적용했어요.', 'success');
+    }
+  }, [customVoiceStatus]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'auto' });
   }, [activeTab]);
 
   useEffect(() => {
-    if (isSettingsOpen) {
+    if (isSettingsOpen || isTrainingOpen) {
       document.body.classList.add('overflow-hidden');
     } else {
       document.body.classList.remove('overflow-hidden');
@@ -161,7 +255,7 @@ function App() {
     return () => {
       document.body.classList.remove('overflow-hidden');
     };
-  }, [isSettingsOpen]);
+  }, [isSettingsOpen, isTrainingOpen]);
 
   useEffect(() => {
     if (isRecording) {
@@ -198,6 +292,10 @@ function App() {
                   onPlayClarified={handlePlayClarified}
                   isSpeaking={isSpeaking}
                   errorMessage={recorderError || error}
+                  activeMode={activeMode}
+                  onListenPress={handleListenPress}
+                  onSelectQuickPhrase={handleSelectQuickPhrase}
+                  fontSize={ttsSettings.fontSize}
                 />
               </div>
             </div>
@@ -217,15 +315,32 @@ function App() {
         {isSettingsOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div
-              className="absolute inset-0 bg-white/70 backdrop-blur-sm"
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
               onClick={() => setIsSettingsOpen(false)}
               aria-hidden="true"
             />
-            <div className="relative z-10 w-full max-w-[300px]">
-              <SettingsModal onClose={() => setIsSettingsOpen(false)} />
+            <div className="relative z-10 w-full max-w-[360px]">
+              <SettingsModal
+                onClose={() => setIsSettingsOpen(false)}
+                onApply={handleApplySettings}
+                settings={ttsSettings}
+                customVoiceStatus={customVoiceStatus}
+                onStartTraining={() => setIsTrainingOpen(true)}
+              />
             </div>
           </div>
         )}
+        {isTrainingOpen && (
+          <CustomVoiceTraining
+            onClose={() => setIsTrainingOpen(false)}
+            onSubmit={() => {
+              setIsTrainingOpen(false);
+              setCustomVoiceStatus('training');
+              showToast('AI 모델 학습을 시작했어요. 최대 5-10분 걸립니다. 완료되면 알려드릴게요.', 'info');
+            }}
+          />
+        )}
+        <Toast message={toast?.message} type={toast?.type} />
         <BottomNavBar activeTab={activeTab} onTabChange={handleTabChange} />
       </div>
     </BookmarkProvider>
