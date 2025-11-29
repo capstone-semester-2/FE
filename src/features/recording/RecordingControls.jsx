@@ -29,6 +29,7 @@ const RecordingControls = ({
   activeMode = 'voice',
   onListenPress,
   onSelectQuickPhrase,
+  fontSize = 18,
 }) => {
     const isListenMode = activeMode === 'listen';
     const isVoiceRecording = isRecording && activeMode === 'voice';
@@ -251,6 +252,7 @@ const RecordingControls = ({
                 className={`w-full text-center font-medium break-words ${
                   displayText ? 'text-2xl text-gray-900 leading-relaxed' : 'text-base text-gray-700'
                 }`}
+                style={{ fontSize: fontSize ? `${fontSize}px` : undefined }}
               >
                 {renderText()}
               </p>

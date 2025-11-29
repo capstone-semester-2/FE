@@ -24,6 +24,12 @@ function App() {
   const [recorderError, setRecorderError] = useState('');
   const [isPreparingRecording, setIsPreparingRecording] = useState(false);
   const [activeMode, setActiveMode] = useState('voice'); // 'voice' | 'listen'
+  const [ttsSettings, setTtsSettings] = useState({
+    voiceSpeed: 1,
+    fontSize: 18,
+    voiceGender: '남성',
+    aiModel: 'hearing',
+  });
 
   const {
     error,
@@ -151,6 +157,27 @@ function App() {
     setIsSpeaking(false);
   }, []);
 
+  const pickVoice = useCallback((gender) => {
+    if (!window.speechSynthesis?.getVoices) {
+      return null;
+    }
+    const voices = window.speechSynthesis.getVoices() || [];
+    if (!voices.length) return null;
+
+    const femaleKeywords = ['female', 'girl', 'woman', 'salli', 'yuna', 'hana', 'mijin'];
+    const maleKeywords = ['male', 'man', 'boy', 'seoyeon', 'jisoo', 'taesoo', 'taeyang'];
+    const isFemale = gender === '여성';
+    const keywords = isFemale ? femaleKeywords : maleKeywords;
+
+    const koVoices = voices.filter((v) => (v.lang || '').toLowerCase().startsWith('ko'));
+    const byKeyword = (list) =>
+      list.find((v) =>
+        keywords.some((kw) => v.name.toLowerCase().includes(kw.toLowerCase()))
+      );
+
+    return byKeyword(koVoices) || koVoices[0] || byKeyword(voices) || voices[0];
+  }, []);
+
   const speakText = useCallback((text) => {
     if (!text || !window.speechSynthesis) {
       return;
@@ -158,17 +185,27 @@ function App() {
     stopSpeaking();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'ko-KR';
+    utterance.rate = ttsSettings.voiceSpeed || 1;
+    const voice = pickVoice(ttsSettings.voiceGender);
+    if (voice) {
+      utterance.voice = voice;
+    }
     setIsSpeaking(true);
     utterance.onend = () => setIsSpeaking(false);
     utterance.onerror = () => setIsSpeaking(false);
     window.speechSynthesis.speak(utterance);
-  }, [stopSpeaking]);
+  }, [pickVoice, stopSpeaking, ttsSettings.voiceGender, ttsSettings.voiceSpeed]);
 
   const handlePlayClarified = () => {
     if (isSpeaking) {
       return;
     }
     speakText(clarifiedText);
+  };
+
+  const handleApplySettings = (settings) => {
+    setTtsSettings(settings);
+    setIsSettingsOpen(false);
   };
 
   const handleSelectQuickPhrase = (text) => {
@@ -234,6 +271,7 @@ function App() {
                   activeMode={activeMode}
                   onListenPress={handleListenPress}
                   onSelectQuickPhrase={handleSelectQuickPhrase}
+                  fontSize={ttsSettings.fontSize}
                 />
               </div>
             </div>
@@ -253,12 +291,16 @@ function App() {
         {isSettingsOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div
-              className="absolute inset-0 bg-white/70 backdrop-blur-sm"
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
               onClick={() => setIsSettingsOpen(false)}
               aria-hidden="true"
             />
-            <div className="relative z-10 w-full max-w-[300px]">
-              <SettingsModal onClose={() => setIsSettingsOpen(false)} />
+            <div className="relative z-10 w-full max-w-[360px]">
+              <SettingsModal
+                onClose={() => setIsSettingsOpen(false)}
+                onApply={handleApplySettings}
+                settings={ttsSettings}
+              />
             </div>
           </div>
         )}

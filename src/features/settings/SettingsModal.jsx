@@ -1,15 +1,39 @@
-import React, { useMemo, useState } from 'react';
-import { Settings, Play, X } from 'lucide-react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { Settings, X, Ear, Brain, GraduationCap } from 'lucide-react';
 
 const speedMarks = { min: '느림', max: '빠름' };
 const fontMarks = { min: '작게', max: '크게' };
 
-const SettingsModal = ({ onClose }) => {
-  const [voiceSpeed, setVoiceSpeed] = useState(1);
-  const [fontSize, setFontSize] = useState(18);
-  const [voiceGender, setVoiceGender] = useState('남성');
+const SettingsModal = ({ onClose, onApply, settings }) => {
+  const [voiceSpeed, setVoiceSpeed] = useState(settings?.voiceSpeed ?? 1);
+  const [fontSize, setFontSize] = useState(settings?.fontSize ?? 18);
+  const [voiceGender, setVoiceGender] = useState(settings?.voiceGender ?? '남성');
+  const [selectedModel, setSelectedModel] = useState(settings?.aiModel ?? 'hearing'); // hearing | cp | custom
 
   const formattedSpeed = useMemo(() => `${voiceSpeed.toFixed(1)}x`, [voiceSpeed]);
+  const modelLabel = useMemo(() => {
+    if (selectedModel === 'hearing') return '언어청각장애';
+    if (selectedModel === 'cp') return '뇌성마비';
+    return '나만의 목소리';
+  }, [selectedModel]);
+
+  useEffect(() => {
+    if (!settings) return;
+    setVoiceSpeed(settings.voiceSpeed ?? 1);
+    setFontSize(settings.fontSize ?? 18);
+    setVoiceGender(settings.voiceGender ?? '남성');
+    setSelectedModel(settings.aiModel ?? 'hearing');
+  }, [settings]);
+
+  const handleApply = () => {
+    onApply?.({
+      voiceSpeed,
+      fontSize,
+      voiceGender,
+      aiModel: selectedModel,
+    });
+    onClose?.();
+  };
 
   return (
     <div className="bg-white rounded-[28px] w-full p-6 relative space-y-6">
@@ -91,14 +115,59 @@ const SettingsModal = ({ onClose }) => {
             })}
           </div>
         </div>
+
+        <div className="pt-1 border-t border-gray-100 space-y-3">
+          <div className="flex items-center justify-between text-sm font-semibold text-gray-800">
+            <span>AI 인공지능 모델</span>
+            <span className="text-xs text-gray-500">{modelLabel}</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setSelectedModel('hearing')}
+              className={`flex flex-col items-center gap-2 py-3 rounded-2xl border text-sm font-semibold transition-colors ${
+                selectedModel === 'hearing'
+                  ? 'border-[#6366F1] bg-[#EEF2FF] text-[#4F46E5]'
+                  : 'border-gray-200 bg-white text-gray-700 hover:border-indigo-200'
+              }`}
+            >
+              <Ear className="w-5 h-5 text-[#6366F1]" />
+              <span>언어청각장애</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedModel('cp')}
+              className={`flex flex-col items-center gap-2 py-3 rounded-2xl border text-sm font-semibold transition-colors ${
+                selectedModel === 'cp'
+                  ? 'border-[#6366F1] bg-[#EEF2FF] text-[#4F46E5]'
+                  : 'border-gray-200 bg-white text-gray-700 hover:border-indigo-200'
+              }`}
+            >
+              <Brain className="w-5 h-5 text-[#6366F1]" />
+              <span>뇌성마비</span>
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSelectedModel('custom')}
+            className={`w-full mt-2 flex flex-col items-center gap-2 py-4 rounded-2xl border text-sm font-semibold transition-colors ${
+              selectedModel === 'custom'
+                ? 'border-dashed border-[#6366F1] bg-[#EEF2FF] text-[#4F46E5]'
+                : 'border-dashed border-gray-300 bg-white text-gray-700 hover:border-indigo-200'
+            }`}
+          >
+            <GraduationCap className="w-5 h-5 text-[#6366F1]" />
+            <span>{selectedModel === 'custom' ? '나만의 목소리 (사용중)' : '나만의 목소리 (학습하기)'}</span>
+          </button>
+        </div>
       </div>
 
       <button
         type="button"
-        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-[#9D8BFF] text-white font-semibold hover:bg-[#8B79F5] transition-colors"
+        onClick={handleApply}
+        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-[#6366F1] text-white font-semibold shadow-md hover:bg-[#4F46E5] transition-colors active:scale-[0.99]"
       >
-        <Play className="w-4 h-4" />
-        음성 테스트
+        적용하기
       </button>
     </div>
   );
