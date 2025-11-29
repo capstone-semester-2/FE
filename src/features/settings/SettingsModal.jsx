@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { Settings, X, Ear, Brain, GraduationCap } from 'lucide-react';
+import { Settings, X, Ear, Brain, GraduationCap, Play, Mic } from 'lucide-react';
 
 const speedMarks = { min: '느림', max: '빠름' };
 const fontMarks = { min: '작게', max: '크게' };
@@ -9,6 +9,7 @@ const SettingsModal = ({ onClose, onApply, settings }) => {
   const [fontSize, setFontSize] = useState(settings?.fontSize ?? 18);
   const [voiceGender, setVoiceGender] = useState(settings?.voiceGender ?? '남성');
   const [selectedModel, setSelectedModel] = useState(settings?.aiModel ?? 'hearing'); // hearing | cp | custom
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const formattedSpeed = useMemo(() => `${voiceSpeed.toFixed(1)}x`, [voiceSpeed]);
   const modelLabel = useMemo(() => {
@@ -33,6 +34,13 @@ const SettingsModal = ({ onClose, onApply, settings }) => {
       aiModel: selectedModel,
     });
     onClose?.();
+  };
+
+  const handleOpenConfirm = () => setShowConfirm(true);
+  const handleCancelConfirm = () => setShowConfirm(false);
+  const handleStartConfirm = () => {
+    setSelectedModel('custom');
+    setShowConfirm(false);
   };
 
   return (
@@ -91,31 +99,6 @@ const SettingsModal = ({ onClose, onApply, settings }) => {
           />
         </div>
 
-        <div className="space-y-3 text-sm text-gray-600">
-          <p className="text-sm text-gray-600">
-            음성 성별 : <span className="font-semibold text-gray-900">{voiceGender}</span>
-          </p>
-          <div className="flex gap-3">
-            {['남성', '여성'].map((gender) => {
-              const isActive = voiceGender === gender;
-              return (
-                <button
-                  key={gender}
-                  type="button"
-                  onClick={() => setVoiceGender(gender)}
-                  className={`flex-1 px-4 py-2 rounded-full font-semibold transition-colors ${
-                    isActive
-                      ? 'bg-[#6366F1] text-white'
-                      : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                  }`}
-                >
-                  {gender}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
         <div className="pt-1 border-t border-gray-100 space-y-3">
           <div className="flex items-center justify-between text-sm font-semibold text-gray-800">
             <span>AI 인공지능 모델</span>
@@ -149,7 +132,7 @@ const SettingsModal = ({ onClose, onApply, settings }) => {
           </div>
           <button
             type="button"
-            onClick={() => setSelectedModel('custom')}
+            onClick={handleOpenConfirm}
             className={`w-full mt-2 flex flex-col items-center gap-2 py-4 rounded-2xl border text-sm font-semibold transition-colors ${
               selectedModel === 'custom'
                 ? 'border-dashed border-[#6366F1] bg-[#EEF2FF] text-[#4F46E5]'
@@ -169,6 +152,38 @@ const SettingsModal = ({ onClose, onApply, settings }) => {
       >
         적용하기
       </button>
+
+      {showConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleCancelConfirm} />
+          <div className="relative z-10 w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl space-y-4">
+            <div className="w-12 h-12 rounded-full bg-[#EEF2FF] flex items-center justify-center mx-auto">
+              <Mic className="w-6 h-6 text-[#6366F1]" />
+            </div>
+            <h3 className="text-lg font-bold text-center text-gray-900">학습을 시작하시겠습니까?</h3>
+            <p className="text-sm text-center text-gray-600">
+              약 10개의 문장을 소리 내어 읽어야 합니다.<br />
+              조용한 곳에서 진행해 주세요.
+            </p>
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={handleCancelConfirm}
+                className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-700 font-semibold hover:bg-gray-50"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleStartConfirm}
+                className="flex-1 py-3 rounded-xl bg-[#6366F1] text-white font-semibold hover:bg-[#4F46E5]"
+              >
+                시작하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
