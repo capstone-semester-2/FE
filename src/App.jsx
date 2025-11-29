@@ -23,6 +23,7 @@ function App() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [recorderError, setRecorderError] = useState('');
   const [isPreparingRecording, setIsPreparingRecording] = useState(false);
+  const [activeMode, setActiveMode] = useState('voice'); // 'voice' | 'listen'
 
   const {
     error,
@@ -64,6 +65,33 @@ function App() {
   };
 
   const handleStartRecording = async () => {
+    setActiveMode('voice');
+    setClarifiedText('');
+    setRecorderError('');
+    setIsPreparingRecording(true);
+    try {
+      await startRecording();
+    } catch (err) {
+      setRecorderError(err.message || '마이크를 시작할 수 없습니다.');
+    } finally {
+      setIsPreparingRecording(false);
+    }
+  };
+
+  const handleListenPress = async () => {
+    // 녹음 중인데 보정용(voice) 모드일 때는 무시
+    if (isRecording && activeMode !== 'listen') {
+      return;
+    }
+
+    // 듣기 모드로 녹음 중이면 정지
+    if (isRecording && activeMode === 'listen') {
+      await handleStopRecording();
+      return;
+    }
+
+    // 듣기 모드로 새로 시작
+    setActiveMode('listen');
     setClarifiedText('');
     setRecorderError('');
     setIsPreparingRecording(true);
@@ -198,6 +226,8 @@ function App() {
                   onPlayClarified={handlePlayClarified}
                   isSpeaking={isSpeaking}
                   errorMessage={recorderError || error}
+                  activeMode={activeMode}
+                  onListenPress={handleListenPress}
                 />
               </div>
             </div>
