@@ -171,6 +171,11 @@ function App() {
     speakText(clarifiedText);
   };
 
+  const handleSelectQuickPhrase = (text) => {
+    setClarifiedText(text);
+    speakText(text);
+  };
+
   useEffect(() => () => {
     stopSpeaking();
   }, [stopSpeaking]);
@@ -228,6 +233,7 @@ function App() {
                   errorMessage={recorderError || error}
                   activeMode={activeMode}
                   onListenPress={handleListenPress}
+                  onSelectQuickPhrase={handleSelectQuickPhrase}
                 />
               </div>
             </div>
