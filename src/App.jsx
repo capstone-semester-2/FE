@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import BottomNavBar from './components/BottomNavBar';
 import Header from './components/Header';
+import Toast from './components/Toast';
 import logo from './assets/logo.png';
 import RecordingControls from './features/recording/RecordingControls';
 import HistoryScreen from './features/history/HistoryScreen';
 import BookmarkScreen from './features/bookmarks/BookmarkScreen';
 import EncyclopediaScreen from './features/encyclopedia/EncyclopediaScreen';
 import SettingsModal from './features/settings/SettingsModal';
+import CustomVoiceTraining from './features/settings/CustomVoiceTraining';
 import { BookmarkProvider } from './store/BookmarkContext';
 import useVoiceRecorder from './hooks/useVoiceRecorder';
 import { requestPresignedUrl, uploadToPresignedUrl } from './services/fileUpload';
@@ -18,6 +20,7 @@ function App() {
   const [recordingTime, setRecordingTime] = useState(0);
   const timerRef = useRef(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isTrainingOpen, setIsTrainingOpen] = useState(false);
   const [clarifiedText, setClarifiedText] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -30,6 +33,9 @@ function App() {
     voiceGender: '남성',
     aiModel: 'hearing',
   });
+  const [customVoiceStatus, setCustomVoiceStatus] = useState('idle'); // idle | training | ready | failed
+  const [toast, setToast] = useState(null);
+  const toastTimerRef = useRef(null);
 
   const {
     error,
@@ -213,16 +219,34 @@ function App() {
     speakText(text);
   };
 
+  const showToast = (message, type = 'info') => {
+    setToast({ message, type });
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+    }
+    toastTimerRef.current = setTimeout(() => {
+      setToast(null);
+      toastTimerRef.current = null;
+    }, 3200);
+  };
+
   useEffect(() => () => {
     stopSpeaking();
   }, [stopSpeaking]);
+
+  useEffect(() => {
+    if (customVoiceStatus === 'ready') {
+      setTtsSettings((prev) => ({ ...prev, aiModel: 'custom' }));
+      showToast('내 목소리 모델이 준비되어 자동 적용했어요.', 'success');
+    }
+  }, [customVoiceStatus]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'auto' });
   }, [activeTab]);
 
   useEffect(() => {
-    if (isSettingsOpen) {
+    if (isSettingsOpen || isTrainingOpen) {
       document.body.classList.add('overflow-hidden');
     } else {
       document.body.classList.remove('overflow-hidden');
@@ -231,7 +255,7 @@ function App() {
     return () => {
       document.body.classList.remove('overflow-hidden');
     };
-  }, [isSettingsOpen]);
+  }, [isSettingsOpen, isTrainingOpen]);
 
   useEffect(() => {
     if (isRecording) {
@@ -300,10 +324,23 @@ function App() {
                 onClose={() => setIsSettingsOpen(false)}
                 onApply={handleApplySettings}
                 settings={ttsSettings}
+                customVoiceStatus={customVoiceStatus}
+                onStartTraining={() => setIsTrainingOpen(true)}
               />
             </div>
           </div>
         )}
+        {isTrainingOpen && (
+          <CustomVoiceTraining
+            onClose={() => setIsTrainingOpen(false)}
+            onSubmit={() => {
+              setIsTrainingOpen(false);
+              setCustomVoiceStatus('training');
+              showToast('AI 모델 학습을 시작했어요. 최대 5-10분 걸립니다. 완료되면 알려드릴게요.', 'info');
+            }}
+          />
+        )}
+        <Toast message={toast?.message} type={toast?.type} />
         <BottomNavBar activeTab={activeTab} onTabChange={handleTabChange} />
       </div>
     </BookmarkProvider>

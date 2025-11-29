@@ -4,12 +4,21 @@ import { Settings, X, Ear, Brain, GraduationCap, Play, Mic } from 'lucide-react'
 const speedMarks = { min: '느림', max: '빠름' };
 const fontMarks = { min: '작게', max: '크게' };
 
-const SettingsModal = ({ onClose, onApply, settings }) => {
+const statusStyles = {
+  training: { text: '학습 중', className: 'bg-amber-50 text-amber-700 border border-amber-200' },
+  ready: { text: '사용 가능', className: 'bg-emerald-50 text-emerald-700 border border-emerald-200' },
+  failed: { text: '실패', className: 'bg-red-50 text-red-600 border border-red-200' },
+};
+
+const SettingsModal = ({ onClose, onApply, settings, onStartTraining, customVoiceStatus = 'idle' }) => {
   const [voiceSpeed, setVoiceSpeed] = useState(settings?.voiceSpeed ?? 1);
   const [fontSize, setFontSize] = useState(settings?.fontSize ?? 18);
   const [voiceGender, setVoiceGender] = useState(settings?.voiceGender ?? '남성');
   const [selectedModel, setSelectedModel] = useState(settings?.aiModel ?? 'hearing'); // hearing | cp | custom
   const [showConfirm, setShowConfirm] = useState(false);
+  const statusBadge = statusStyles[customVoiceStatus];
+  const isCustomReady = customVoiceStatus === 'ready';
+  const isCustomTraining = customVoiceStatus === 'training';
 
   const formattedSpeed = useMemo(() => `${voiceSpeed.toFixed(1)}x`, [voiceSpeed]);
   const modelLabel = useMemo(() => {
@@ -27,6 +36,9 @@ const SettingsModal = ({ onClose, onApply, settings }) => {
   }, [settings]);
 
   const handleApply = () => {
+    if (selectedModel === 'custom' && !isCustomReady) {
+      return;
+    }
     onApply?.({
       voiceSpeed,
       fontSize,
@@ -39,8 +51,8 @@ const SettingsModal = ({ onClose, onApply, settings }) => {
   const handleOpenConfirm = () => setShowConfirm(true);
   const handleCancelConfirm = () => setShowConfirm(false);
   const handleStartConfirm = () => {
-    setSelectedModel('custom');
     setShowConfirm(false);
+    onStartTraining?.();
   };
 
   return (
@@ -102,6 +114,11 @@ const SettingsModal = ({ onClose, onApply, settings }) => {
         <div className="pt-1 border-t border-gray-100 space-y-3">
           <div className="flex items-center justify-between text-sm font-semibold text-gray-800">
             <span>AI 인공지능 모델</span>
+            {statusBadge && (
+              <span className={`text-xs font-semibold px-2 py-1 rounded-full ${statusBadge.className}`}>
+                {statusBadge.text}
+              </span>
+            )}
             <span className="text-xs text-gray-500">{modelLabel}</span>
           </div>
           <div className="grid grid-cols-2 gap-2">
@@ -137,10 +154,22 @@ const SettingsModal = ({ onClose, onApply, settings }) => {
               selectedModel === 'custom'
                 ? 'border-dashed border-[#6366F1] bg-[#EEF2FF] text-[#4F46E5]'
                 : 'border-dashed border-gray-300 bg-white text-gray-700 hover:border-indigo-200'
-            }`}
+              }`}
+            disabled={isCustomTraining}
           >
             <GraduationCap className="w-5 h-5 text-[#6366F1]" />
-            <span>{selectedModel === 'custom' ? '나만의 목소리 (사용중)' : '나만의 목소리 (학습하기)'}</span>
+            <span>
+              {isCustomReady
+                ? '나만의 목소리 (사용 가능)'
+                : isCustomTraining
+                  ? '나만의 목소리 (학습 중)'
+                  : selectedModel === 'custom'
+                    ? '나만의 목소리 (사용중)'
+                    : '나만의 목소리 (학습하기)'}
+            </span>
+            {!isCustomReady && isCustomTraining && (
+              <span className="text-xs font-normal text-amber-600">학습 중에는 선택할 수 없습니다</span>
+            )}
           </button>
         </div>
       </div>
@@ -148,7 +177,12 @@ const SettingsModal = ({ onClose, onApply, settings }) => {
       <button
         type="button"
         onClick={handleApply}
-        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-[#6366F1] text-white font-semibold shadow-md hover:bg-[#4F46E5] transition-colors active:scale-[0.99]"
+        disabled={selectedModel === 'custom' && !isCustomReady}
+        className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-white font-semibold shadow-md transition-colors active:scale-[0.99] ${
+          selectedModel === 'custom' && !isCustomReady
+            ? 'bg-[#A5B4FC] cursor-not-allowed'
+            : 'bg-[#6366F1] hover:bg-[#4F46E5]'
+        }`}
       >
         적용하기
       </button>
@@ -162,8 +196,8 @@ const SettingsModal = ({ onClose, onApply, settings }) => {
             </div>
             <h3 className="text-lg font-bold text-center text-gray-900">학습을 시작하시겠습니까?</h3>
             <p className="text-sm text-center text-gray-600">
-              약 10개의 문장을 소리 내어 읽어야 합니다.<br />
-              조용한 곳에서 진행해 주세요.
+              약 20개의 문장을 소리 내어 읽어야 합니다.<br />
+              조용한 곳에서 진행해 주세요. (예상 5-10분)
             </p>
             <div className="flex gap-2 pt-2">
               <button
