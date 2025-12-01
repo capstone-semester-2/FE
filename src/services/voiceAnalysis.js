@@ -115,8 +115,9 @@ export const notifyUploadComplete = async ({ objectKey, emitterId }) => {
   if (!objectKey || !emitterId) {
     throw new Error('업로드 완료 알림에 필요한 정보가 누락되었습니다.');
   }
+  const voiceModel = "HEARING"
 
-  const response = await fetch(`${API_BASE_URL}voices/upload-complete`, {    
+  const response = await fetch(`${API_BASE_URL}voices/upload-complete?voiceModel=${voiceModel}`, {    
     method: 'POST',
     credentials: 'include',
     headers: {
