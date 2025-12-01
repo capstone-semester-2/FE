@@ -39,6 +39,10 @@ export const connectVoiceStream = () => {
 
   const url = new URL('voices/stream', API_BASE_URL);
   url.searchParams.append("accessToken", accessToken);
+  console.log("[sse] connecting to stream", {
+    url: url.toString(),
+    hasToken: Boolean(accessToken),
+  });
 
 
   return new Promise((resolve, reject) => {
@@ -83,6 +87,7 @@ export const connectVoiceStream = () => {
     });
 
     eventSource.addEventListener('error', () => {
+      console.warn("[sse] stream error event fired");
       if (hasErrored || isResolved) {
         return;
       }
