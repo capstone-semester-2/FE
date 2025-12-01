@@ -122,16 +122,29 @@ function App() {
       if (!blob) {
         return;
       }
+      console.log('[recording] stop captured blob', {
+        size: blob.size,
+        type: blob.type,
+      });
       setIsProcessing(true);
       const wavFile = new File([blob], `recording-${Date.now()}.wav`, { type: 'audio/wav' });
+      console.log('[recording] created wav file', {
+        name: wavFile.name,
+        size: wavFile.size,
+        type: wavFile.type,
+      });
 
       const { emitterId, waitForResult, cancel } = await connectVoiceStream();
+      console.log('[recording] voice stream connected', { emitterId });
 
       try {
         const { preSignedUrl, objectKey } = await requestPresignedUrl('wav');
+        console.log('[recording] presigned url received', { objectKey });
         await uploadToPresignedUrl(preSignedUrl, wavFile);
+        console.log('[recording] upload done, notifying server', { objectKey, emitterId });
         await notifyUploadComplete({ objectKey, emitterId });
         const analysisResult = await waitForResult;
+        console.log('[recording] analysis result received', analysisResult);
         const text =
           analysisResult?.text ||
           analysisResult?.message ||
@@ -139,6 +152,7 @@ function App() {
         setClarifiedText(text);
       } finally {
         cancel?.();
+        console.log('[recording] voice stream closed');
       }
       setIsProcessing(false);
       setIsPreparingRecording(false);

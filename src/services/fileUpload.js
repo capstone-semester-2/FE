@@ -13,6 +13,10 @@ export const requestPresignedUrl = async (extension = 'wav') => {
 
   const url = new URL('generate-presigned-url', API_BASE_URL);
   url.searchParams.set('extension', extension);
+  console.log('[upload] requesting presigned url', {
+    url: url.toString(),
+    extension,
+  });
 
   const headers = new Headers();
   const accessToken = getAccessToken();
@@ -37,6 +41,11 @@ export const requestPresignedUrl = async (extension = 'wav') => {
     throw new Error('서버에서 올바른 presigned URL 정보를 받지 못했습니다.');
   }
 
+  console.log('[upload] presigned url issued', {
+    objectKey: result.objectKey,
+    expiresAt: result.expiresAt,
+  });
+
   return {
     preSignedUrl: result.preSignedUrl,
     objectKey: result.objectKey,
@@ -45,6 +54,11 @@ export const requestPresignedUrl = async (extension = 'wav') => {
 };
 
 export const uploadToPresignedUrl = async (preSignedUrl, file) => {
+  console.log('[upload] start upload to presigned url', {
+    preSignedUrl,
+    size: file?.size,
+    type: file?.type,
+  });
   const response = await fetch(preSignedUrl, {
     method: 'PUT',
     headers: {
@@ -56,4 +70,9 @@ export const uploadToPresignedUrl = async (preSignedUrl, file) => {
   if (!response.ok) {
     throw new Error('녹음 파일 업로드에 실패했습니다. 네트워크 상태를 확인해주세요.');
   }
+
+  console.log('[upload] upload completed', {
+    status: response.status,
+    ok: response.ok,
+  });
 };
