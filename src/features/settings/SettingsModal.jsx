@@ -197,7 +197,7 @@ const SettingsModal = ({ onClose, onApply, settings, onStartTraining, customVoic
             <h3 className="text-lg font-bold text-center text-gray-900">학습을 시작하시겠습니까?</h3>
             <p className="text-sm text-center text-gray-600">
               약 20개의 문장을 소리 내어 읽어야 합니다.<br />
-              조용한 곳에서 진행해 주세요. (예상 5-10분)
+              (예상 5-10분)
             </p>
             <div className="flex gap-2 pt-2">
               <button
