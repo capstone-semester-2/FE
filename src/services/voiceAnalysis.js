@@ -39,6 +39,10 @@ export const connectVoiceStream = () => {
 
   const url = new URL('voices/stream', API_BASE_URL);
   url.searchParams.append("accessToken", accessToken);
+  console.log("[sse] connecting to stream", {
+    url: url.toString(),
+    hasToken: Boolean(accessToken),
+  });
 
 
   return new Promise((resolve, reject) => {
@@ -83,6 +87,7 @@ export const connectVoiceStream = () => {
     });
 
     eventSource.addEventListener('error', () => {
+      console.warn("[sse] stream error event fired");
       if (hasErrored || isResolved) {
         return;
       }
@@ -110,8 +115,9 @@ export const notifyUploadComplete = async ({ objectKey, emitterId }) => {
   if (!objectKey || !emitterId) {
     throw new Error('업로드 완료 알림에 필요한 정보가 누락되었습니다.');
   }
+  const voiceModel = "HEARING"
 
-  const response = await fetch(`${API_BASE_URL}voices/upload-complete`, {    
+  const response = await fetch(`${API_BASE_URL}voices/upload-complete?voiceModel=${voiceModel}`, {    
     method: 'POST',
     credentials: 'include',
     headers: {
