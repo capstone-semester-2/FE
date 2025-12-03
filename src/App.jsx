@@ -147,6 +147,9 @@ function App() {
           analysisResult?.message ||
           '분석 결과를 받아오지 못했습니다.';
         setClarifiedText(text);
+        if (text) {
+          speakText(text);
+        }
       } finally {
         cancel?.();
         console.log('[recording] voice stream closed');
