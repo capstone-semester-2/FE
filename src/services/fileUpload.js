@@ -53,6 +53,46 @@ export const requestPresignedUrl = async (extension = 'wav') => {
   };
 };
 
+export const requestGetPresignedUrl = async (objectKey) => {
+  assertApiBaseUrl();
+
+  if (!objectKey) {
+    throw new Error('objectKey가 필요합니다.');
+  }
+
+  const url = new URL('generate-get-presigned-url', API_BASE_URL);
+  url.searchParams.set('objectKey', objectKey);
+
+  const headers = new Headers();
+  const accessToken = getAccessToken();
+  if (accessToken) {
+    headers.set('Authorization', `Bearer ${accessToken}`);
+  }
+
+  const response = await fetch(url.toString(), {
+    method: 'GET',
+    credentials: 'include',
+    headers,
+  });
+
+  if (!response.ok) {
+    throw new Error('조회용 URL을 발급받지 못했습니다. 잠시 후 다시 시도해주세요.');
+  }
+
+  const data = await response.json().catch(() => ({}));
+  const result = data?.result;
+
+  if (!result?.preSignedUrl) {
+    throw new Error('서버에서 올바른 조회용 presigned URL 정보를 받지 못했습니다.');
+  }
+
+  return {
+    preSignedUrl: result.preSignedUrl,
+    objectKey: result.objectKey ?? objectKey,
+    expiresAt: result.expiresAt,
+  };
+};
+
 export const uploadToPresignedUrl = async (preSignedUrl, file) => {
   console.log('[upload] start upload to presigned url', {
     preSignedUrl,
