@@ -12,7 +12,13 @@ import CustomVoiceTraining from './features/settings/CustomVoiceTraining';
 import { BookmarkProvider } from './store/BookmarkContext';
 import useVoiceRecorder from './hooks/useVoiceRecorder';
 import { requestPresignedUrl, uploadToPresignedUrl } from './services/fileUpload';
-import { connectVoiceStream, notifyUploadComplete, requestAiLearning } from './services/voiceAnalysis';
+import {
+  connectVoiceStream,
+  deleteVoiceRecord,
+  fetchVoiceList,
+  notifyUploadComplete,
+  requestAiLearning,
+} from './services/voiceAnalysis';
 import { uploadCustomVoiceTrainingSet } from './services/customVoiceTraining';
 
 
@@ -28,6 +34,11 @@ function App() {
   const [recorderError, setRecorderError] = useState('');
   const [isPreparingRecording, setIsPreparingRecording] = useState(false);
   const [activeMode, setActiveMode] = useState('voice'); // 'voice' | 'listen'
+  const [voiceRecords, setVoiceRecords] = useState([]);
+  const [voiceCursor, setVoiceCursor] = useState(null);
+  const [voiceHasMore, setVoiceHasMore] = useState(true);
+  const [voiceLoading, setVoiceLoading] = useState(false);
+  const [voiceTotalCount, setVoiceTotalCount] = useState(0);
   const [ttsSettings, setTtsSettings] = useState({
     voiceSpeed: 1,
     fontSize: 18,
@@ -46,34 +57,6 @@ function App() {
     startRecording,
     stopRecording,
   } = useVoiceRecorder();
-
-  // 녹음 기록 데이터
-  const [recordings, setRecordings] = useState([
-    { 
-      id: 1, 
-      clarifiedText: '안녕하세요, 반갑습니다.', 
-      date: '2025.10.26 14:30', 
-      bookmarked: false
-    },
-    { 
-      id: 2, 
-      clarifiedText: '좋습니다', 
-      date: '2025.10.25 11:30', 
-      bookmarked: false
-    },
-    { 
-      id: 3, 
-      clarifiedText: '화장실이 어디 있을까요?', 
-      date: '2025.10.25 08:30', 
-      bookmarked: false
-    },
-    { 
-      id: 4, 
-      clarifiedText: '네, 감사합니다', 
-      date: '2025.10.25 08:30', 
-      bookmarked: false
-    },
-  ]);
 
   const handleTabChange = (tabId) => {
     setActiveTab(tabId);
@@ -178,7 +161,7 @@ function App() {
   };
 
   const handleDeleteRecording = (id) => {
-    setRecordings(recordings.filter(rec => rec.id !== id));
+    setVoiceRecords((prev) => prev.filter((rec) => rec.id !== id));
   };
 
   const stopSpeaking = useCallback(() => {
@@ -315,6 +298,58 @@ function App() {
     }
   }, [customVoiceStatus]);
 
+  const normalizeVoiceRecord = (item) => ({
+    id: item?.voiceId ?? item?.id,
+    clarifiedText: item?.translatedText ?? '',
+    createdAt: item?.createdAt,
+    objectKey: item?.objectKey,
+    translatedTextObjectKey: item?.translatedText_objectKey ?? item?.translatedTextObjectKey,
+  });
+
+  const loadVoiceRecords = useCallback(async () => {
+    if (voiceLoading || !voiceHasMore) return;
+    setVoiceLoading(true);
+    try {
+      const { totalCount, voices } = await fetchVoiceList({
+        lastId: voiceCursor ?? undefined,
+        size: 5,
+      });
+
+      const normalized = Array.isArray(voices) ? voices.map(normalizeVoiceRecord).filter((v) => v.id) : [];
+
+      setVoiceRecords((prev) => {
+        const existing = new Set(prev.map((v) => v.id));
+        const deduped = normalized.filter((v) => !existing.has(v.id));
+        return [...prev, ...deduped];
+      });
+
+      setVoiceTotalCount(totalCount ?? 0);
+
+      if (!normalized.length) {
+        setVoiceHasMore(false);
+        return;
+      }
+
+      const nextCursor = normalized[normalized.length - 1]?.id ?? null;
+      if (nextCursor === null || nextCursor === voiceCursor) {
+        setVoiceHasMore(false);
+      } else {
+        setVoiceCursor(nextCursor);
+      }
+    } catch (err) {
+      console.error('Failed to load voice history', err);
+    } finally {
+      setVoiceLoading(false);
+    }
+  }, [voiceCursor, voiceHasMore, voiceLoading]);
+
+  useEffect(() => {
+    if (activeTab !== 'history') return;
+    if (voiceRecords.length === 0 && !voiceLoading) {
+      loadVoiceRecords();
+    }
+  }, [activeTab, loadVoiceRecords, voiceLoading, voiceRecords.length]);
+
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'auto' });
   }, [activeTab]);
@@ -376,8 +411,20 @@ function App() {
           )}
           {activeTab === 'history' && (
             <HistoryScreen 
-              recordings={recordings}
-              onDelete={handleDeleteRecording}
+              recordings={voiceRecords}
+              onDelete={async (id) => {
+                try {
+                  await deleteVoiceRecord(id);
+                  handleDeleteRecording(id);
+                } catch (err) {
+                  console.error(err);
+                  showToast(err.message || '기록 삭제에 실패했습니다.', 'error');
+                }
+              }}
+              totalCount={voiceTotalCount}
+              onLoadMore={loadVoiceRecords}
+              isLoading={voiceLoading}
+              hasMore={voiceHasMore}
             />
           )}
           {activeTab === 'bookmark' && (

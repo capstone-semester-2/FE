@@ -7,7 +7,11 @@ const HistoryListItem = ({ recording, onDelete, onPlayOriginal, onPlayClarified,
     <div className="bg-white border border-gray-200 rounded-2xl p-4">
       {/* 날짜 및 삭제 버튼 */}
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xs text-gray-400">{recording.date}</span>
+        <span className="text-xs text-gray-400">
+          {recording.createdAt
+            ? new Date(recording.createdAt).toLocaleString()
+            : recording.date}
+        </span>
         <button
           onClick={() => onDelete(recording.id)}
           className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"

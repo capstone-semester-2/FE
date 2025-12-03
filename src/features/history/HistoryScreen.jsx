@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Clock, X } from 'lucide-react';
 import HistoryListItem from './HistoryListItem';
 
-const HistoryScreen = ({ recordings, onDelete }) => {
+const HistoryScreen = ({ recordings, onDelete, totalCount = 0, onLoadMore, isLoading, hasMore }) => {
   const [showDeletePopup, setShowDeletePopup] = useState(false);
   const [selectedRecording, setSelectedRecording] = useState(null);
   const [playingAudio, setPlayingAudio] = useState(null);
+  const sentinelRef = useRef(null);
 
   const handleDeleteClick = (id) => {
     setSelectedRecording(id);
@@ -32,6 +33,28 @@ const HistoryScreen = ({ recordings, onDelete }) => {
     setTimeout(() => setPlayingAudio(null), 2000);
   };
 
+  useEffect(() => {
+    if (!hasMore || isLoading) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          onLoadMore?.();
+        }
+      },
+      { threshold: 0.4 },
+    );
+
+    const current = sentinelRef.current;
+    if (current) {
+      observer.observe(current);
+    }
+
+    return () => observer.disconnect();
+  }, [hasMore, isLoading, onLoadMore]);
+
   return (
     <div className="flex-1 overflow-auto pb-24 bg-gray-50">
       <div className="p-4">
@@ -43,7 +66,7 @@ const HistoryScreen = ({ recordings, onDelete }) => {
 
         {/* 필터 - 총 개수 */}
         <div className="mb-4 pb-3 border-b border-gray-200 flex items-center justify-between">
-          <span className="text-sm text-gray-500">총 {recordings.length}개</span>
+          <span className="text-sm text-gray-500">총 {totalCount || recordings.length}개</span>
           <button className="p-1">
             <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -72,6 +95,12 @@ const HistoryScreen = ({ recordings, onDelete }) => {
                 isPlaying={playingAudio}
               />
             ))}
+            <div ref={sentinelRef} />
+            {isLoading && (
+              <div className="flex justify-center py-4">
+                <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
           </div>
         )}
       </div>
