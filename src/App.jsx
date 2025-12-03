@@ -13,6 +13,7 @@ import { BookmarkProvider } from './store/BookmarkContext';
 import useVoiceRecorder from './hooks/useVoiceRecorder';
 import { requestPresignedUrl, uploadToPresignedUrl } from './services/fileUpload';
 import { connectVoiceStream, notifyUploadComplete } from './services/voiceAnalysis';
+import { uploadCustomVoiceTrainingSet } from './services/customVoiceTraining';
 
 
 function App() {
@@ -34,8 +35,10 @@ function App() {
     aiModel: 'hearing',
   });
   const [customVoiceStatus, setCustomVoiceStatus] = useState('idle'); // idle | training | ready | failed
+  const [isUploadingTraining, setIsUploadingTraining] = useState(false);
   const [toast, setToast] = useState(null);
   const toastTimerRef = useRef(null);
+  const trainingPayloadRef = useRef(null);
 
   const {
     error,
@@ -233,6 +236,33 @@ function App() {
     speakText(text);
   };
 
+  const handleCustomTrainingSubmit = async (payload) => {
+    if (isUploadingTraining) return;
+
+    trainingPayloadRef.current = payload;
+    setIsTrainingOpen(false);
+    setCustomVoiceStatus('training');
+    const baseLabel = payload?.baseModel === 'cp' ? '뇌성마비' : '언어청각장애';
+    showToast(`AI 모델 학습을 시작했어요. ${baseLabel} 어댑터로 진행하며 완료되면 알려드릴게요.`, 'info');
+
+    try {
+      setIsUploadingTraining(true);
+      const uploadResult = await uploadCustomVoiceTrainingSet({
+        baseModel: payload?.baseModel,
+        recordings: payload?.recordings,
+        sentences: payload?.sentences,
+      });
+      trainingPayloadRef.current = { ...payload, uploadResult };
+      showToast('학습용 음성 업로드를 완료했어요. 모델 학습을 시작합니다.', 'success');
+    } catch (err) {
+      console.error('[custom voice] upload failed', err);
+      setCustomVoiceStatus('failed');
+      showToast(err.message || '학습용 음성 업로드에 실패했습니다. 다시 시도해주세요.', 'error');
+    } finally {
+      setIsUploadingTraining(false);
+    }
+  };
+
   const showToast = (message, type = 'info') => {
     setToast({ message, type });
     if (toastTimerRef.current) {
@@ -347,11 +377,7 @@ function App() {
         {isTrainingOpen && (
           <CustomVoiceTraining
             onClose={() => setIsTrainingOpen(false)}
-            onSubmit={() => {
-              setIsTrainingOpen(false);
-              setCustomVoiceStatus('training');
-              showToast('AI 모델 학습을 시작했어요. 최대 5-10분 걸립니다. 완료되면 알려드릴게요.', 'info');
-            }}
+            onSubmit={handleCustomTrainingSubmit}
           />
         )}
         <Toast message={toast?.message} type={toast?.type} />
