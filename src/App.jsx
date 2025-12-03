@@ -145,7 +145,16 @@ function App() {
         console.log('[recording] presigned url received', { objectKey });
         await uploadToPresignedUrl(preSignedUrl, wavFile);
         console.log('[recording] upload done, notifying server', { objectKey, emitterId });
-        await notifyUploadComplete({ objectKey, emitterId });
+        const voiceModel =
+          activeMode === 'listen'
+            ? 'KOREAN'
+            : ttsSettings.aiModel === 'cp'
+              ? 'CP'
+              : ttsSettings.aiModel === 'custom'
+                ? 'CUSTOM'
+                : 'HEARING';
+
+        await notifyUploadComplete({ objectKey, emitterId, voiceModel });
         const analysisResult = await waitForResult;
         console.log('[recording] analysis result received', analysisResult);
         const text =

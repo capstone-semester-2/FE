@@ -98,7 +98,15 @@ export const connectVoiceStream = () => {
   });
 };
 
-export const notifyUploadComplete = async ({ objectKey, emitterId }) => {
+const normalizeVoiceModel = (voiceModel) => {
+  const upper = (voiceModel || '').toString().toUpperCase();
+  if (upper === 'KOREAN') return 'KOREAN';
+  if (upper === 'CP') return 'CP';
+  if (upper === 'CUSTOM') return 'CUSTOM';
+  return 'HEARING';
+};
+
+export const notifyUploadComplete = async ({ objectKey, emitterId, voiceModel }) => {
   assertApiBaseUrl();
 
   const raw = localStorage.getItem("revoice_auth_tokens");
@@ -115,9 +123,9 @@ export const notifyUploadComplete = async ({ objectKey, emitterId }) => {
   if (!objectKey || !emitterId) {
     throw new Error('업로드 완료 알림에 필요한 정보가 누락되었습니다.');
   }
-  const voiceModel = "HEARING"
+  const normalizedModel = normalizeVoiceModel(voiceModel);
 
-  const response = await fetch(`${API_BASE_URL}voices/upload-complete?voiceModel=${voiceModel}`, {    
+  const response = await fetch(`${API_BASE_URL}voices/upload-complete?voiceModel=${normalizedModel}`, {
     method: 'POST',
     credentials: 'include',
     headers: {
