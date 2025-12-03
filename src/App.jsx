@@ -12,7 +12,7 @@ import CustomVoiceTraining from './features/settings/CustomVoiceTraining';
 import { BookmarkProvider } from './store/BookmarkContext';
 import useVoiceRecorder from './hooks/useVoiceRecorder';
 import { requestPresignedUrl, uploadToPresignedUrl } from './services/fileUpload';
-import { connectVoiceStream, notifyUploadComplete } from './services/voiceAnalysis';
+import { connectVoiceStream, notifyUploadComplete, requestAiLearning } from './services/voiceAnalysis';
 import { uploadCustomVoiceTrainingSet } from './services/customVoiceTraining';
 
 
@@ -251,7 +251,12 @@ function App() {
     trainingPayloadRef.current = payload;
     setIsTrainingOpen(false);
     setCustomVoiceStatus('training');
-    const baseLabel = payload?.baseModel === 'cp' ? '뇌성마비' : '언어청각장애';
+    const baseLabel =
+      payload?.baseModel === 'cp'
+        ? '뇌성마비'
+        : payload?.baseModel === 'korean'
+          ? '한국어 일반'
+          : '언어청각장애';
     showToast(`AI 모델 학습을 시작했어요. ${baseLabel} 어댑터로 진행하며 완료되면 알려드릴게요.`, 'info');
 
     try {
@@ -262,11 +267,27 @@ function App() {
         sentences: payload?.sentences,
       });
       trainingPayloadRef.current = { ...payload, uploadResult };
-      showToast('학습용 음성 업로드를 완료했어요. 모델 학습을 시작합니다.', 'success');
+      const learningVoiceModel =
+        uploadResult?.voiceModel ||
+        (payload?.baseModel === 'cp'
+          ? 'CP'
+          : payload?.baseModel === 'korean'
+            ? 'KOREAN'
+            : 'HEARING');
+
+      await requestAiLearning({
+        voiceModel: learningVoiceModel,
+        objectKeyInfos: uploadResult?.uploads?.map((item) => ({
+          objectKeyId: item?.objectKeyId ?? item?.id ?? null,
+          objectKey: item?.objectKey,
+        })),
+      });
+
+      showToast('학습용 음성 업로드를 완료했고, 모델 학습을 요청했어요.', 'success');
     } catch (err) {
-      console.error('[custom voice] upload failed', err);
+      console.error('[custom voice] upload or learning request failed', err);
       setCustomVoiceStatus('failed');
-      showToast(err.message || '학습용 음성 업로드에 실패했습니다. 다시 시도해주세요.', 'error');
+      showToast(err.message || '학습용 음성 업로드/요청에 실패했습니다. 다시 시도해주세요.', 'error');
     } finally {
       setIsUploadingTraining(false);
     }

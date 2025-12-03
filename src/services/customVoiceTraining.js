@@ -11,6 +11,8 @@ const assertApiBaseUrl = () => {
 
 const normalizeVoiceModel = (baseModel) => {
   if (baseModel === 'cp' || baseModel === 'CP') return 'CP';
+  if (baseModel === 'korean' || baseModel === 'KOREAN') return 'KOREAN';
+  if (baseModel === 'custom' || baseModel === 'CUSTOM') return 'CUSTOM';
   return 'HEARING';
 };
 
@@ -54,6 +56,7 @@ export const requestTrainingPresignedUrls = async ({ baseModel = 'hearing' } = {
   return list.map((item, index) => ({
     preSignedUrl: item.preSignedUrl || item.presignedUrl,
     objectKey: item.objectKey,
+    objectKeyId: item.objectKeyId ?? item.id ?? null,
     expiresAt: item.expiresAt,
     index,
   }));
@@ -97,6 +100,7 @@ export const uploadCustomVoiceTrainingSet = async ({
 
     uploads.push({
       objectKey: presigned.objectKey,
+      objectKeyId: presigned.objectKeyId ?? null,
       expiresAt: presigned.expiresAt,
       index,
       sentence: sentences[index] ?? null,
