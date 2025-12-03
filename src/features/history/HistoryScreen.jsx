@@ -2,10 +2,19 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Clock, X } from 'lucide-react';
 import HistoryListItem from './HistoryListItem';
 
-const HistoryScreen = ({ recordings, onDelete, totalCount = 0, onLoadMore, isLoading, hasMore }) => {
+const HistoryScreen = ({
+  recordings,
+  onDelete,
+  totalCount = 0,
+  onLoadMore,
+  isLoading,
+  hasMore,
+  onPlayOriginal,
+  onPlayClarified,
+  playingId,
+}) => {
   const [showDeletePopup, setShowDeletePopup] = useState(false);
   const [selectedRecording, setSelectedRecording] = useState(null);
-  const [playingAudio, setPlayingAudio] = useState(null);
   const sentinelRef = useRef(null);
 
   const handleDeleteClick = (id) => {
@@ -22,15 +31,11 @@ const HistoryScreen = ({ recordings, onDelete, totalCount = 0, onLoadMore, isLoa
   };
 
   const handlePlayOriginal = (id) => {
-    setPlayingAudio(`original-${id}`);
-    // TODO: 실제 오디오 재생 로직 추가
-    setTimeout(() => setPlayingAudio(null), 2000);
+    onPlayOriginal?.(id);
   };
 
   const handlePlayClarified = (id) => {
-    setPlayingAudio(`clarified-${id}`);
-    // TODO: 실제 오디오 재생 로직 추가
-    setTimeout(() => setPlayingAudio(null), 2000);
+    onPlayClarified?.(id);
   };
 
   useEffect(() => {
@@ -92,7 +97,7 @@ const HistoryScreen = ({ recordings, onDelete, totalCount = 0, onLoadMore, isLoa
                 onDelete={handleDeleteClick}
                 onPlayOriginal={handlePlayOriginal}
                 onPlayClarified={handlePlayClarified}
-                isPlaying={playingAudio}
+                isPlaying={playingId}
               />
             ))}
             <div ref={sentinelRef} />

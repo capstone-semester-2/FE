@@ -11,7 +11,7 @@ import SettingsModal from './features/settings/SettingsModal';
 import CustomVoiceTraining from './features/settings/CustomVoiceTraining';
 import { BookmarkProvider } from './store/BookmarkContext';
 import useVoiceRecorder from './hooks/useVoiceRecorder';
-import { requestPresignedUrl, uploadToPresignedUrl } from './services/fileUpload';
+import { requestGetPresignedUrl, requestPresignedUrl, uploadToPresignedUrl } from './services/fileUpload';
 import {
   connectVoiceStream,
   deleteVoiceRecord,
@@ -39,6 +39,8 @@ function App() {
   const [voiceHasMore, setVoiceHasMore] = useState(true);
   const [voiceLoading, setVoiceLoading] = useState(false);
   const [voiceTotalCount, setVoiceTotalCount] = useState(0);
+  const [playingAudioId, setPlayingAudioId] = useState(null);
+  const audioRef = useRef(null);
   const [ttsSettings, setTtsSettings] = useState({
     voiceSpeed: 1,
     fontSize: 18,
@@ -163,6 +165,36 @@ function App() {
   const handleDeleteRecording = (id) => {
     setVoiceRecords((prev) => prev.filter((rec) => rec.id !== id));
   };
+
+  const stopAudioPlayback = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setPlayingAudioId(null);
+  }, []);
+
+  const playAudioByObjectKey = useCallback(
+    async ({ objectKey, id, type }) => {
+      if (!objectKey) {
+        throw new Error('재생할 오디오 objectKey가 없습니다.');
+      }
+      stopAudioPlayback();
+      const { preSignedUrl } = await requestGetPresignedUrl(objectKey);
+      const audio = new Audio(preSignedUrl);
+      audioRef.current = audio;
+      setPlayingAudioId(`${type}-${id}`);
+      audio.onended = () => {
+        stopAudioPlayback();
+      };
+      audio.onerror = () => {
+        stopAudioPlayback();
+        showToast('오디오를 재생하지 못했습니다.', 'error');
+      };
+      await audio.play();
+    },
+    [stopAudioPlayback],
+  );
 
   const stopSpeaking = useCallback(() => {
     if (!window.speechSynthesis) {
@@ -421,6 +453,35 @@ function App() {
                   showToast(err.message || '기록 삭제에 실패했습니다.', 'error');
                 }
               }}
+              onPlayOriginal={async (id) => {
+                try {
+                  const target = voiceRecords.find((v) => v.id === id);
+                  if (!target?.objectKey) {
+                    throw new Error('원본 오디오가 없습니다.');
+                  }
+                  await playAudioByObjectKey({ objectKey: target.objectKey, id, type: 'original' });
+                } catch (err) {
+                  console.error(err);
+                  showToast(err.message || '오디오를 재생하지 못했습니다.', 'error');
+                }
+              }}
+              onPlayClarified={async (id) => {
+                try {
+                  const target = voiceRecords.find((v) => v.id === id);
+                  const clarifiedKey =
+                    target?.translatedTextObjectKey ??
+                    target?.translatedText_objectKey ??
+                    target?.objectKey;
+                  if (!clarifiedKey) {
+                    throw new Error('변환된 오디오가 없습니다.');
+                  }
+                  await playAudioByObjectKey({ objectKey: clarifiedKey, id, type: 'clarified' });
+                } catch (err) {
+                  console.error(err);
+                  showToast(err.message || '오디오를 재생하지 못했습니다.', 'error');
+                }
+              }}
+              playingId={playingAudioId}
               totalCount={voiceTotalCount}
               onLoadMore={loadVoiceRecords}
               isLoading={voiceLoading}
