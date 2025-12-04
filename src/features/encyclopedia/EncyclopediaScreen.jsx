@@ -122,6 +122,7 @@ const EncyclopediaScreen = () => {
     } catch (err) {
       console.error(err);
       setError(err.message || '수화 사전 목록을 불러오지 못했습니다.');
+      setHasMore(false); // 오류 시 반복 호출 방지
     } finally {
       setIsLoading(false);
     }
