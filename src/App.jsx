@@ -41,6 +41,7 @@ function App() {
   const [voiceTotalCount, setVoiceTotalCount] = useState(0);
   const [playingAudioId, setPlayingAudioId] = useState(null);
   const audioRef = useRef(null);
+  const historyLoadedRef = useRef(false);
   const [ttsSettings, setTtsSettings] = useState({
     voiceSpeed: 1,
     fontSize: 18,
@@ -375,17 +376,22 @@ function App() {
       }
     } catch (err) {
       console.error('Failed to load voice history', err);
+      setVoiceHasMore(false); // 더 이상 자동 재시도하지 않도록 중단
     } finally {
       setVoiceLoading(false);
     }
   }, [voiceCursor, voiceHasMore, voiceLoading]);
 
   useEffect(() => {
-    if (activeTab !== 'history') return;
-    if (voiceRecords.length === 0 && !voiceLoading) {
+    if (activeTab !== 'history') {
+      historyLoadedRef.current = false;
+      return;
+    }
+    if (!historyLoadedRef.current && !voiceLoading) {
+      historyLoadedRef.current = true;
       loadVoiceRecords();
     }
-  }, [activeTab, loadVoiceRecords, voiceLoading, voiceRecords.length]);
+  }, [activeTab, loadVoiceRecords, voiceLoading]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'auto' });
