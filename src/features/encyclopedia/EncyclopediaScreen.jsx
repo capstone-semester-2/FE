@@ -1,28 +1,17 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Search } from 'lucide-react';
 import SavedSignLanguageItem from '../bookmarks/SavedSignLanguageItem';
 import { useBookmarkContext } from '../../store/BookmarkContext';
-import { searchDictionary } from '../../services/dictionary';
-
-const MOCK_ENTRIES = [
-  { id: 101, word: '안녕하세요' },
-  { id: 102, word: '감사합니다' },
-  { id: 103, word: '반갑습니다' },
-  { id: 104, word: '도와주세요' },
-  { id: 105, word: '죄송합니다' },
-  { id: 106, word: '괜찮아요' },
-];
-
-const ITEMS_PER_PAGE = 5;
+import { fetchDictionaryList, searchDictionary } from '../../services/dictionary';
 
 const EncyclopediaScreen = () => {
   const { toggleSavedItem, isSaved } = useBookmarkContext();
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [page, setPage] = useState(1);
   const [displayedItems, setDisplayedItems] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [cursor, setCursor] = useState(null);
   const [error, setError] = useState('');
 
   const observerRef = useRef(null);
@@ -46,18 +35,6 @@ const EncyclopediaScreen = () => {
 
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
-    }
-
-    // 검색어 없으면 기본 목록 + 무한스크롤 유지
-    if (!trimmed) {
-      setIsLoading(true);
-      const timer = setTimeout(() => {
-        const nextItems = MOCK_ENTRIES.slice(0, page * ITEMS_PER_PAGE);
-        setDisplayedItems(nextItems);
-        setHasMore(nextItems.length < MOCK_ENTRIES.length);
-        setIsLoading(false);
-      }, 120);
-      return () => clearTimeout(timer);
     }
 
     // 검색 시 API 호출 (디바운스)
@@ -88,7 +65,71 @@ const EncyclopediaScreen = () => {
         clearTimeout(debounceRef.current);
       }
     };
-  }, [page, searchTerm]);
+  }, [searchTerm]);
+
+  const loadDictionaryList = useCallback(async () => {
+    if (isLoading || !hasMore || searchTerm.trim()) {
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+    try {
+      const items = await fetchDictionaryList({
+        lastId: cursor ?? undefined,
+        size: 20,
+      });
+
+      const normalized = items
+        .map((item) => ({
+          id: item?.id ?? item?.dictionaryId,
+          word: item?.gestureName ?? item?.name ?? item?.dictionaryName ?? '',
+          thumbnailUrl: item?.gestureUrl ?? item?.thumbnailUrl,
+        }))
+        .filter((item) => item.id && item.word);
+
+      setDisplayedItems((prev) => {
+        const existingIds = new Set(prev.map((it) => it.id));
+        const deduped = normalized.filter((it) => !existingIds.has(it.id));
+        return [...prev, ...deduped];
+      });
+
+      if (items.length === 0) {
+        setHasMore(false);
+        return;
+      }
+
+      const last = normalized[normalized.length - 1] ?? items[items.length - 1];
+      const nextCursor =
+        last?.id ??
+        last?.dictionaryId ??
+        last?.bookmarkId ??
+        last?.bookMarkId ??
+        null;
+
+      if (nextCursor === null || nextCursor === cursor) {
+        setHasMore(false);
+        return;
+      }
+      setCursor(nextCursor);
+    } catch (err) {
+      console.error(err);
+      setError(err.message || '수화 사전 목록을 불러오지 못했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [cursor, hasMore, isLoading, searchTerm]);
+
+  useEffect(() => {
+    if (searchTerm.trim()) {
+      // 검색 모드에서 목록 상태를 초기화
+      setCursor(null);
+      setHasMore(false);
+      return;
+    }
+
+    loadDictionaryList();
+  }, [loadDictionaryList, searchTerm]);
 
   useEffect(() => {
     if (searchTerm.trim() || !hasMore || isLoading) {
@@ -101,7 +142,7 @@ const EncyclopediaScreen = () => {
     observerRef.current = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting) {
-          setPage((prev) => prev + 1);
+          loadDictionaryList();
         }
       },
       { threshold: 0.4 },
@@ -117,11 +158,13 @@ const EncyclopediaScreen = () => {
         observerRef.current.disconnect();
       }
     };
-  }, [hasMore, isLoading, searchTerm]);
+  }, [hasMore, isLoading, loadDictionaryList, searchTerm]);
 
   const handleSearchChange = (event) => {
     setSearchTerm(event.target.value);
-    setPage(1);
+    setCursor(null);
+    setHasMore(true);
+    setDisplayedItems([]);
   };
 
   const handleToggleSave = async (item) => {

@@ -12,7 +12,7 @@ const DEFAULT_FREQUENT_WORDS = [
 ];
 
 const BookmarkScreen = () => {
-  const { savedItems, removeSavedItem, loadMore, isLoading, hasMore } = useBookmarkContext();
+  const { savedItems, toggleSavedItem, loadMore, isLoading, hasMore } = useBookmarkContext();
 
   const [showUnsaveModal, setShowUnsaveModal] = useState(false);
   const [pendingItem, setPendingItem] = useState(null);
@@ -33,12 +33,19 @@ const BookmarkScreen = () => {
     setShowUnsaveModal(true);
   };
 
-  const confirmUnsave = () => {
-    if (pendingItem) {
-      removeSavedItem(pendingItem.id);
+  const confirmUnsave = async () => {
+    if (!pendingItem) {
+      return;
     }
-    setPendingItem(null);
-    setShowUnsaveModal(false);
+
+    try {
+      await toggleSavedItem(pendingItem);
+      setPendingItem(null);
+      setShowUnsaveModal(false);
+    } catch (error) {
+      console.error(error);
+      alert(error.message || '북마크 취소에 실패했습니다.');
+    }
   };
 
   const cancelUnsave = () => {

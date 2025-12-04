@@ -11,8 +11,15 @@ import SettingsModal from './features/settings/SettingsModal';
 import CustomVoiceTraining from './features/settings/CustomVoiceTraining';
 import { BookmarkProvider } from './store/BookmarkContext';
 import useVoiceRecorder from './hooks/useVoiceRecorder';
-import { requestPresignedUrl, uploadToPresignedUrl } from './services/fileUpload';
-import { connectVoiceStream, notifyUploadComplete } from './services/voiceAnalysis';
+import { requestGetPresignedUrl, requestPresignedUrl, uploadToPresignedUrl } from './services/fileUpload';
+import {
+  connectVoiceStream,
+  deleteVoiceRecord,
+  fetchVoiceList,
+  notifyUploadComplete,
+  requestAiLearning,
+} from './services/voiceAnalysis';
+import { uploadCustomVoiceTrainingSet } from './services/customVoiceTraining';
 
 
 function App() {
@@ -27,6 +34,14 @@ function App() {
   const [recorderError, setRecorderError] = useState('');
   const [isPreparingRecording, setIsPreparingRecording] = useState(false);
   const [activeMode, setActiveMode] = useState('voice'); // 'voice' | 'listen'
+  const [voiceRecords, setVoiceRecords] = useState([]);
+  const [voiceCursor, setVoiceCursor] = useState(null);
+  const [voiceHasMore, setVoiceHasMore] = useState(true);
+  const [voiceLoading, setVoiceLoading] = useState(false);
+  const [voiceTotalCount, setVoiceTotalCount] = useState(0);
+  const [playingAudioId, setPlayingAudioId] = useState(null);
+  const audioRef = useRef(null);
+  const historyLoadedRef = useRef(false);
   const [ttsSettings, setTtsSettings] = useState({
     voiceSpeed: 1,
     fontSize: 18,
@@ -34,8 +49,10 @@ function App() {
     aiModel: 'hearing',
   });
   const [customVoiceStatus, setCustomVoiceStatus] = useState('idle'); // idle | training | ready | failed
+  const [isUploadingTraining, setIsUploadingTraining] = useState(false);
   const [toast, setToast] = useState(null);
   const toastTimerRef = useRef(null);
+  const trainingPayloadRef = useRef(null);
 
   const {
     error,
@@ -43,34 +60,6 @@ function App() {
     startRecording,
     stopRecording,
   } = useVoiceRecorder();
-
-  // 녹음 기록 데이터
-  const [recordings, setRecordings] = useState([
-    { 
-      id: 1, 
-      clarifiedText: '안녕하세요, 반갑습니다.', 
-      date: '2025.10.26 14:30', 
-      bookmarked: false
-    },
-    { 
-      id: 2, 
-      clarifiedText: '좋습니다', 
-      date: '2025.10.25 11:30', 
-      bookmarked: false
-    },
-    { 
-      id: 3, 
-      clarifiedText: '화장실이 어디 있을까요?', 
-      date: '2025.10.25 08:30', 
-      bookmarked: false
-    },
-    { 
-      id: 4, 
-      clarifiedText: '네, 감사합니다', 
-      date: '2025.10.25 08:30', 
-      bookmarked: false
-    },
-  ]);
 
   const handleTabChange = (tabId) => {
     setActiveTab(tabId);
@@ -142,14 +131,28 @@ function App() {
         console.log('[recording] presigned url received', { objectKey });
         await uploadToPresignedUrl(preSignedUrl, wavFile);
         console.log('[recording] upload done, notifying server', { objectKey, emitterId });
-        await notifyUploadComplete({ objectKey, emitterId });
+        const voiceModel =
+          activeMode === 'listen'
+            ? 'KOREAN'
+            : ttsSettings.aiModel === 'cp'
+              ? 'CP'
+              : ttsSettings.aiModel === 'custom'
+                ? 'CUSTOM'
+                : 'HEARING';
+
+        await notifyUploadComplete({ objectKey, emitterId, voiceModel });
         const analysisResult = await waitForResult;
         console.log('[recording] analysis result received', analysisResult);
         const text =
           analysisResult?.text ||
+          analysisResult?.result?.text ||
           analysisResult?.message ||
+          analysisResult?.result?.message ||
           '분석 결과를 받아오지 못했습니다.';
         setClarifiedText(text);
+        if (text) {
+          speakText(text);
+        }
       } finally {
         cancel?.();
         console.log('[recording] voice stream closed');
@@ -166,8 +169,38 @@ function App() {
   };
 
   const handleDeleteRecording = (id) => {
-    setRecordings(recordings.filter(rec => rec.id !== id));
+    setVoiceRecords((prev) => prev.filter((rec) => rec.id !== id));
   };
+
+  const stopAudioPlayback = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setPlayingAudioId(null);
+  }, []);
+
+  const playAudioByObjectKey = useCallback(
+    async ({ objectKey, id, type }) => {
+      if (!objectKey) {
+        throw new Error('재생할 오디오 objectKey가 없습니다.');
+      }
+      stopAudioPlayback();
+      const { preSignedUrl } = await requestGetPresignedUrl(objectKey);
+      const audio = new Audio(preSignedUrl);
+      audioRef.current = audio;
+      setPlayingAudioId(`${type}-${id}`);
+      audio.onended = () => {
+        stopAudioPlayback();
+      };
+      audio.onerror = () => {
+        stopAudioPlayback();
+        showToast('오디오를 재생하지 못했습니다.', 'error');
+      };
+      await audio.play();
+    },
+    [stopAudioPlayback],
+  );
 
   const stopSpeaking = useCallback(() => {
     if (!window.speechSynthesis) {
@@ -233,6 +266,54 @@ function App() {
     speakText(text);
   };
 
+  const handleCustomTrainingSubmit = async (payload) => {
+    if (isUploadingTraining) return;
+
+    trainingPayloadRef.current = payload;
+    setIsTrainingOpen(false);
+    setCustomVoiceStatus('training');
+    const baseLabel =
+      payload?.baseModel === 'cp'
+        ? '뇌성마비'
+        : payload?.baseModel === 'korean'
+          ? '한국어 일반'
+          : '언어청각장애';
+    showToast(`AI 모델 학습을 시작했어요. ${baseLabel} 어댑터로 진행하며 완료되면 알려드릴게요.`, 'info');
+
+    try {
+      setIsUploadingTraining(true);
+      const uploadResult = await uploadCustomVoiceTrainingSet({
+        baseModel: payload?.baseModel,
+        recordings: payload?.recordings,
+        sentences: payload?.sentences,
+      });
+      trainingPayloadRef.current = { ...payload, uploadResult };
+      const learningVoiceModel =
+        uploadResult?.voiceModel ||
+        (payload?.baseModel === 'cp'
+          ? 'CP'
+          : payload?.baseModel === 'korean'
+            ? 'KOREAN'
+            : 'HEARING');
+
+      await requestAiLearning({
+        voiceModel: learningVoiceModel,
+        objectKeyInfos: uploadResult?.uploads?.map((item) => ({
+          objectKeyId: item?.objectKeyId ?? item?.id ?? null,
+          objectKey: item?.objectKey,
+        })),
+      });
+
+      showToast('학습용 음성 업로드를 완료했고, 모델 학습을 요청했어요.', 'success');
+    } catch (err) {
+      console.error('[custom voice] upload or learning request failed', err);
+      setCustomVoiceStatus('failed');
+      showToast(err.message || '학습용 음성 업로드/요청에 실패했습니다. 다시 시도해주세요.', 'error');
+    } finally {
+      setIsUploadingTraining(false);
+    }
+  };
+
   const showToast = (message, type = 'info') => {
     setToast({ message, type });
     if (toastTimerRef.current) {
@@ -254,6 +335,63 @@ function App() {
       showToast('내 목소리 모델이 준비되어 자동 적용했어요.', 'success');
     }
   }, [customVoiceStatus]);
+
+  const normalizeVoiceRecord = (item) => ({
+    id: item?.voiceId ?? item?.id,
+    clarifiedText: item?.translatedText ?? '',
+    createdAt: item?.createdAt,
+    objectKey: item?.objectKey,
+    translatedTextObjectKey: item?.translatedText_objectKey ?? item?.translatedTextObjectKey,
+  });
+
+  const loadVoiceRecords = useCallback(async () => {
+    if (voiceLoading || !voiceHasMore) return;
+    setVoiceLoading(true);
+    try {
+      const { totalCount, voices } = await fetchVoiceList({
+        lastId: voiceCursor ?? undefined,
+        size: 5,
+      });
+
+      const normalized = Array.isArray(voices) ? voices.map(normalizeVoiceRecord).filter((v) => v.id) : [];
+
+      setVoiceRecords((prev) => {
+        const existing = new Set(prev.map((v) => v.id));
+        const deduped = normalized.filter((v) => !existing.has(v.id));
+        return [...prev, ...deduped];
+      });
+
+      setVoiceTotalCount(totalCount ?? 0);
+
+      if (!normalized.length) {
+        setVoiceHasMore(false);
+        return;
+      }
+
+      const nextCursor = normalized[normalized.length - 1]?.id ?? null;
+      if (nextCursor === null || nextCursor === voiceCursor) {
+        setVoiceHasMore(false);
+      } else {
+        setVoiceCursor(nextCursor);
+      }
+    } catch (err) {
+      console.error('Failed to load voice history', err);
+      setVoiceHasMore(false); // 더 이상 자동 재시도하지 않도록 중단
+    } finally {
+      setVoiceLoading(false);
+    }
+  }, [voiceCursor, voiceHasMore, voiceLoading]);
+
+  useEffect(() => {
+    if (activeTab !== 'history') {
+      historyLoadedRef.current = false;
+      return;
+    }
+    if (!historyLoadedRef.current && !voiceLoading) {
+      historyLoadedRef.current = true;
+      loadVoiceRecords();
+    }
+  }, [activeTab, loadVoiceRecords, voiceLoading]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'auto' });
@@ -316,8 +454,49 @@ function App() {
           )}
           {activeTab === 'history' && (
             <HistoryScreen 
-              recordings={recordings}
-              onDelete={handleDeleteRecording}
+              recordings={voiceRecords}
+              onDelete={async (id) => {
+                try {
+                  await deleteVoiceRecord(id);
+                  handleDeleteRecording(id);
+                } catch (err) {
+                  console.error(err);
+                  showToast(err.message || '기록 삭제에 실패했습니다.', 'error');
+                }
+              }}
+              onPlayOriginal={async (id) => {
+                try {
+                  const target = voiceRecords.find((v) => v.id === id);
+                  if (!target?.objectKey) {
+                    throw new Error('원본 오디오가 없습니다.');
+                  }
+                  await playAudioByObjectKey({ objectKey: target.objectKey, id, type: 'original' });
+                } catch (err) {
+                  console.error(err);
+                  showToast(err.message || '오디오를 재생하지 못했습니다.', 'error');
+                }
+              }}
+              onPlayClarified={async (id) => {
+                try {
+                  const target = voiceRecords.find((v) => v.id === id);
+                  const clarifiedKey =
+                    target?.translatedTextObjectKey ??
+                    target?.translatedText_objectKey ??
+                    target?.objectKey;
+                  if (!clarifiedKey) {
+                    throw new Error('변환된 오디오가 없습니다.');
+                  }
+                  await playAudioByObjectKey({ objectKey: clarifiedKey, id, type: 'clarified' });
+                } catch (err) {
+                  console.error(err);
+                  showToast(err.message || '오디오를 재생하지 못했습니다.', 'error');
+                }
+              }}
+              playingId={playingAudioId}
+              totalCount={voiceTotalCount}
+              onLoadMore={loadVoiceRecords}
+              isLoading={voiceLoading}
+              hasMore={voiceHasMore}
             />
           )}
           {activeTab === 'bookmark' && (
@@ -347,11 +526,7 @@ function App() {
         {isTrainingOpen && (
           <CustomVoiceTraining
             onClose={() => setIsTrainingOpen(false)}
-            onSubmit={() => {
-              setIsTrainingOpen(false);
-              setCustomVoiceStatus('training');
-              showToast('AI 모델 학습을 시작했어요. 최대 5-10분 걸립니다. 완료되면 알려드릴게요.', 'info');
-            }}
+            onSubmit={handleCustomTrainingSubmit}
           />
         )}
         <Toast message={toast?.message} type={toast?.type} />

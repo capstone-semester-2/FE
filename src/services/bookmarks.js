@@ -23,14 +23,14 @@ const extractErrorMessage = async (
   return fallbackMessage;
 };
 
-export const createBookmark = async (dictionaryId) => {
+export const toggleDictionaryBookmark = async (dictionaryId) => {
   assertApiBaseUrl();
 
   if (typeof dictionaryId === 'undefined' || dictionaryId === null) {
     throw new Error('dictionaryId가 필요합니다.');
   }
 
-  const url = new URL('bookmark', API_BASE_URL);
+  const url = new URL('dictionary/bookmark', API_BASE_URL);
   url.searchParams.set('dictionaryId', dictionaryId);
 
   const headers = new Headers();
@@ -42,7 +42,7 @@ export const createBookmark = async (dictionaryId) => {
   }
 
   const response = await fetch(url.toString(), {
-    method: 'POST',
+    method: 'PUT',
     credentials: 'include',
     headers,
   });
@@ -50,7 +50,7 @@ export const createBookmark = async (dictionaryId) => {
   if (!response.ok) {
     const message = await extractErrorMessage(
       response,
-      '북마크 저장에 실패했습니다. 잠시 후 다시 시도해주세요.',
+      '북마크 상태 변경에 실패했습니다. 잠시 후 다시 시도해주세요.',
     );
     throw new Error(message);
   }

@@ -98,7 +98,15 @@ export const connectVoiceStream = () => {
   });
 };
 
-export const notifyUploadComplete = async ({ objectKey, emitterId }) => {
+const normalizeVoiceModel = (voiceModel) => {
+  const upper = (voiceModel || '').toString().toUpperCase();
+  if (upper === 'KOREAN') return 'KOREAN';
+  if (upper === 'CP') return 'CP';
+  if (upper === 'CUSTOM') return 'CUSTOM';
+  return 'HEARING';
+};
+
+export const notifyUploadComplete = async ({ objectKey, emitterId, voiceModel }) => {
   assertApiBaseUrl();
 
   const raw = localStorage.getItem("revoice_auth_tokens");
@@ -115,9 +123,9 @@ export const notifyUploadComplete = async ({ objectKey, emitterId }) => {
   if (!objectKey || !emitterId) {
     throw new Error('업로드 완료 알림에 필요한 정보가 누락되었습니다.');
   }
-  const voiceModel = "HEARING"
+  const normalizedModel = normalizeVoiceModel(voiceModel);
 
-  const response = await fetch(`${API_BASE_URL}voices/upload-complete?voiceModel=${voiceModel}`, {    
+  const response = await fetch(`${API_BASE_URL}voices/upload-complete?voiceModel=${normalizedModel}`, {
     method: 'POST',
     credentials: 'include',
     headers: {
@@ -142,6 +150,65 @@ export const notifyUploadComplete = async ({ objectKey, emitterId }) => {
   }
 
   return response.json().catch(() => undefined);
+};
+
+export const requestAiLearning = async ({ voiceModel, emitterId, objectKeyInfos }) => {
+  assertApiBaseUrl();
+
+  const raw = localStorage.getItem("revoice_auth_tokens");
+  if (!raw) return Promise.reject("로그인이 필요합니다.");
+
+  const parsed = JSON.parse(raw);
+  const accessToken = parsed?.result?.accessToken;
+
+  if (!accessToken) {
+    return Promise.reject(new Error("로그인이 필요합니다."));
+  }
+
+  const normalizedModel = normalizeVoiceModel(voiceModel);
+  const payloadEmitterId =
+    emitterId ||
+    (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `emitter-${Date.now()}`);
+
+  const list = Array.isArray(objectKeyInfos) ? objectKeyInfos : [];
+  const normalizedList = list
+    .map((item) => ({
+      objectKeyId: item?.objectKeyId ?? item?.id ?? null,
+      objectKey: item?.objectKey,
+    }))
+    .filter((item) => Boolean(item.objectKey));
+
+  if (!normalizedList.length) {
+    throw new Error('학습용 objectKey 정보가 없습니다.');
+  }
+
+  const url = new URL('voices/ai-learning', API_BASE_URL);
+  url.searchParams.set('voiceModel', normalizedModel);
+
+  const response = await fetch(url.toString(), {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({
+      emitterId: payloadEmitterId,
+      objectKeyInfos: normalizedList,
+    }),
+  });
+
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const message =
+      payload?.message ||
+      payload?.result?.message ||
+      'AI 모델 학습을 시작하지 못했습니다. 잠시 후 다시 시도해주세요.';
+    throw new Error(message);
+  }
+
+  return payload?.result ?? payload ?? {};
 };
 
 export const fetchVoiceList = async ({ lastId, size = 5 } = {}) => {

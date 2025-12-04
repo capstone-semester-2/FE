@@ -8,15 +8,19 @@ import {
   useRef,
   useState,
 } from 'react';
-import { createBookmark, fetchBookmarkList } from '../services/bookmarks';
+import { fetchBookmarkList, toggleDictionaryBookmark } from '../services/bookmarks';
 
 const BookmarkContext = createContext(null);
 
 const initialSavedItems = [];
 
 const normalizeBookmark = (item) => ({
-  id: item?.id ?? item?.bookmarkId ?? item?.bookMarkId,
-  word: item?.gestureName ?? item?.name ?? '',
+  id:
+    item?.id ??
+    item?.dictionaryId ??
+    item?.bookmarkId ??
+    item?.bookMarkId,
+  word: item?.gestureName ?? item?.name ?? item?.dictionaryName ?? '',
   thumbnailUrl: item?.gestureUrl ?? item?.thumbnailUrl,
 });
 
@@ -52,7 +56,15 @@ export const BookmarkProvider = ({ children }) => {
         return;
       }
 
-      const nextCursor = items[items.length - 1]?.id ?? null;
+      const lastNormalized = normalized[normalized.length - 1];
+      const lastRaw = items[items.length - 1];
+      const nextCursor =
+        lastNormalized?.id ??
+        lastRaw?.id ??
+        lastRaw?.dictionaryId ??
+        lastRaw?.bookmarkId ??
+        lastRaw?.bookMarkId ??
+        null;
       if (nextCursor === null || nextCursor === cursor) {
         setHasMore(false);
         return;
@@ -75,34 +87,49 @@ export const BookmarkProvider = ({ children }) => {
 
   const toggleSavedItem = useCallback(
     async (item) => {
-      if (!item?.id) {
+      const dictionaryId = item?.id ?? item?.dictionaryId;
+      if (!dictionaryId) {
         throw new Error('dictionaryId가 필요합니다.');
       }
 
-      const exists = savedItems.some((saved) => saved.id === item.id);
-
-      if (exists) {
-        setSavedItems((prev) => prev.filter((saved) => saved.id !== item.id));
-        return { isSaved: false };
-      }
-
-      const result = await createBookmark(item.id);
+      const result = await toggleDictionaryBookmark(dictionaryId);
+      const bookmarked = Boolean(result?.bookmarked);
 
       setSavedItems((prev) => {
-        if (prev.some((saved) => saved.id === item.id)) {
-          return prev;
+        const withoutCurrent = prev.filter((saved) => saved.id !== dictionaryId);
+        if (!bookmarked) {
+          return withoutCurrent;
         }
-        return [...prev, { ...item, bookmarkId: result?.bookMarkId }];
+
+        const existing = prev.find((saved) => saved.id === dictionaryId);
+        const baseItem = existing || item || { id: dictionaryId };
+        const normalized = {
+          ...baseItem,
+          id: baseItem?.id ?? dictionaryId,
+          word:
+            baseItem?.word ??
+            baseItem?.gestureName ??
+            baseItem?.name ??
+            baseItem?.dictionaryName ??
+            '',
+          thumbnailUrl: baseItem?.thumbnailUrl ?? baseItem?.gestureUrl,
+        };
+
+        if (!normalized.word) {
+          return withoutCurrent;
+        }
+
+        return [...withoutCurrent, normalized];
       });
 
-      return { isSaved: true, bookmarkId: result?.bookMarkId };
+      return {
+        isSaved: bookmarked,
+        dictionaryId: result?.dictionaryId ?? dictionaryId,
+        bookmarked,
+      };
     },
-    [savedItems],
+    [],
   );
-
-  const removeSavedItem = useCallback((id) => {
-    setSavedItems((prev) => prev.filter((item) => item.id !== id));
-  }, []);
 
   const isSaved = useCallback(
     (id) => savedItems.some((item) => item.id === id),
@@ -116,10 +143,9 @@ export const BookmarkProvider = ({ children }) => {
       hasMore,
       loadMore,
       toggleSavedItem,
-      removeSavedItem,
       isSaved,
     }),
-    [hasMore, isLoading, isSaved, loadMore, removeSavedItem, savedItems, toggleSavedItem],
+    [hasMore, isLoading, isSaved, loadMore, savedItems, toggleSavedItem],
   );
 
   return <BookmarkContext.Provider value={contextValue}>{children}</BookmarkContext.Provider>;
