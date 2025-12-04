@@ -37,6 +37,13 @@ const EncyclopediaScreen = () => {
       clearTimeout(debounceRef.current);
     }
 
+    // 검색어가 비어 있으면 검색 API 호출을 건너뛰고 목록 모드 유지
+    if (!trimmed) {
+      setHasMore(true);
+      setIsLoading(false);
+      return;
+    }
+
     // 검색 시 API 호출 (디바운스)
     setIsLoading(true);
     setHasMore(false);
