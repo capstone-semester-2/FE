@@ -296,6 +296,7 @@ function App() {
 
   const handleSelectQuickPhrase = (text) => {
     setClarifiedText(text);
+    setTextMappings([]); // 빠른 문구를 선택하면 이전 분석 매핑을 지워 텍스트 영역에 바로 표시
     speakText(text);
   };
 

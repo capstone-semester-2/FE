@@ -147,7 +147,7 @@ const RecordingControls = ({
         if (!word) return null;
         const isClickable = exists && onSignWordClick;
         const className = isClickable
-          ? 'text-indigo-600 underline font-semibold cursor-pointer hover:text-indigo-700 transition-colors'
+          ? 'text-indigo-600 font-semibold cursor-pointer hover:text-indigo-700 transition-colors'
           : 'text-gray-900';
 
         if (isClickable) {
