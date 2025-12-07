@@ -157,8 +157,13 @@ const EncyclopediaScreen = () => {
       return;
     }
 
-    loadDictionaryList();
-  }, [loadDictionaryList, searchTerm]);
+    const shouldLoadInitialList =
+      !isLoading && hasMore && cursor === null && displayedItems.length === 0;
+
+    if (shouldLoadInitialList) {
+      loadDictionaryList();
+    }
+  }, [cursor, displayedItems.length, hasMore, isLoading, loadDictionaryList, searchTerm]);
 
   useEffect(() => {
     if (searchTerm.trim() || !hasMore || isLoading) {
