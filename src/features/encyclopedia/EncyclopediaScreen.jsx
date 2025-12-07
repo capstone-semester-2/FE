@@ -3,6 +3,8 @@ import { Search } from 'lucide-react';
 import SavedSignLanguageItem from '../bookmarks/SavedSignLanguageItem';
 import { useBookmarkContext } from '../../store/BookmarkContext';
 import { fetchDictionaryList, searchDictionary } from '../../services/dictionary';
+import { requestGetPresignedUrl } from '../../services/fileUpload';
+import SignVideoModal from '../../components/SignVideoModal';
 
 const EncyclopediaScreen = () => {
   const { toggleSavedItem, isSaved } = useBookmarkContext();
@@ -13,6 +15,13 @@ const EncyclopediaScreen = () => {
   const [hasMore, setHasMore] = useState(true);
   const [cursor, setCursor] = useState(null);
   const [error, setError] = useState('');
+  const [videoModal, setVideoModal] = useState({
+    isOpen: false,
+    isLoading: false,
+    videoUrl: '',
+    error: '',
+    item: null,
+  });
 
   const observerRef = useRef(null);
   const sentinelRef = useRef(null);
@@ -55,6 +64,12 @@ const EncyclopediaScreen = () => {
             id: item?.id ?? item?.dictionaryId,
             word: item?.gestureName ?? item?.name ?? '',
             thumbnailUrl: item?.gestureUrl ?? item?.thumbnailUrl,
+            objectKey:
+              item?.objectKey ??
+              item?.videoObjectKey ??
+              item?.gestureObjectKey ??
+              item?.gestureUrlObjectKey,
+            videoUrl: item?.videoUrl ?? item?.gestureVideoUrl ?? item?.gestureUrl,
           }))
           .filter((item) => item.id && item.word);
         setDisplayedItems(normalized);
@@ -92,6 +107,12 @@ const EncyclopediaScreen = () => {
           id: item?.id ?? item?.dictionaryId,
           word: item?.gestureName ?? item?.name ?? item?.dictionaryName ?? '',
           thumbnailUrl: item?.gestureUrl ?? item?.thumbnailUrl,
+          objectKey:
+            item?.objectKey ??
+            item?.videoObjectKey ??
+            item?.gestureObjectKey ??
+            item?.gestureUrlObjectKey,
+          videoUrl: item?.videoUrl ?? item?.gestureVideoUrl ?? item?.gestureUrl,
         }))
         .filter((item) => item.id && item.word);
 
@@ -184,6 +205,54 @@ const EncyclopediaScreen = () => {
     }
   };
 
+  const closeVideoModal = () => {
+    setVideoModal({
+      isOpen: false,
+      isLoading: false,
+      videoUrl: '',
+      error: '',
+      item: null,
+    });
+  };
+
+  const handlePlayVideo = async (item) => {
+    if (!item) return;
+
+    setVideoModal({
+      isOpen: true,
+      isLoading: true,
+      videoUrl: '',
+      error: '',
+      item,
+    });
+
+    try {
+      let resolvedUrl = item?.videoUrl ?? item?.thumbnailUrl ?? '';
+
+      if (item?.objectKey) {
+        const { preSignedUrl } = await requestGetPresignedUrl(item.objectKey);
+        resolvedUrl = preSignedUrl;
+      }
+
+      if (!resolvedUrl) {
+        throw new Error('재생할 영상 주소를 찾지 못했습니다.');
+      }
+
+      setVideoModal((prev) => ({
+        ...prev,
+        videoUrl: resolvedUrl,
+        isLoading: false,
+        error: '',
+      }));
+    } catch (err) {
+      setVideoModal((prev) => ({
+        ...prev,
+        isLoading: false,
+        error: err.message || '영상 재생 주소를 불러오지 못했습니다.',
+      }));
+    }
+  };
+
   const emptyStateVisible = Boolean(searchTerm.trim()) && !isLoading && displayedItems.length === 0;
 
   return (
@@ -225,7 +294,9 @@ const EncyclopediaScreen = () => {
                 id={item.id}
                 word={item.word}
                 thumbnailUrl={item.thumbnailUrl}
-                onPlayVideo={() => console.log(`영상 보기: ${item.word}`)}
+                objectKey={item.objectKey}
+                videoUrl={item.videoUrl}
+                onPlayVideo={handlePlayVideo}
                 onToggleSave={handleToggleSave}
                 isSaved={isSaved(item.id)}
               />
@@ -246,6 +317,16 @@ const EncyclopediaScreen = () => {
           </div>
         )}
       </div>
+
+      <SignVideoModal
+        isOpen={videoModal.isOpen}
+        isLoading={videoModal.isLoading}
+        videoUrl={videoModal.videoUrl}
+        word={videoModal.item?.word}
+        error={videoModal.error}
+        onClose={closeVideoModal}
+        onRetry={videoModal.item ? () => handlePlayVideo(videoModal.item) : undefined}
+      />
     </div>
   );
 };

@@ -4,6 +4,8 @@ import FrequentWordItem from './FrequentWordItem';
 import SavedSignLanguageItem from './SavedSignLanguageItem';
 import { useBookmarkContext } from '../../store/BookmarkContext';
 import { fetchTranslatedTextTop3 } from '../../services/translatedText';
+import { requestGetPresignedUrl } from '../../services/fileUpload';
+import SignVideoModal from '../../components/SignVideoModal';
 
 const DEFAULT_FREQUENT_WORDS = [
   { id: 1, rank: 1, word: '안녕하세요', count: '15회 사용' },
@@ -19,13 +21,64 @@ const BookmarkScreen = () => {
   const [frequentWords, setFrequentWords] = useState([]);
   const [isTopLoading, setIsTopLoading] = useState(false);
   const sentinelRef = useRef(null);
+  const [videoModal, setVideoModal] = useState({
+    isOpen: false,
+    isLoading: false,
+    videoUrl: '',
+    error: '',
+    item: null,
+  });
 
   const handlePlayWord = (word) => {
     console.log(`Playing audio for: ${word}`);
   };
 
-  const handlePlayVideo = (word) => {
-    console.log(`Playing sign language video for: ${word}`);
+  const closeVideoModal = () => {
+    setVideoModal({
+      isOpen: false,
+      isLoading: false,
+      videoUrl: '',
+      error: '',
+      item: null,
+    });
+  };
+
+  const handlePlayVideo = async (item) => {
+    if (!item) return;
+
+    setVideoModal({
+      isOpen: true,
+      isLoading: true,
+      videoUrl: '',
+      error: '',
+      item,
+    });
+
+    try {
+      let resolvedUrl = item?.videoUrl ?? item?.thumbnailUrl ?? '';
+
+      if (item?.objectKey) {
+        const { preSignedUrl } = await requestGetPresignedUrl(item.objectKey);
+        resolvedUrl = preSignedUrl;
+      }
+
+      if (!resolvedUrl) {
+        throw new Error('재생할 영상 주소를 찾지 못했습니다.');
+      }
+
+      setVideoModal((prev) => ({
+        ...prev,
+        videoUrl: resolvedUrl,
+        isLoading: false,
+        error: '',
+      }));
+    } catch (err) {
+      setVideoModal((prev) => ({
+        ...prev,
+        isLoading: false,
+        error: err.message || '영상 재생 주소를 불러오지 못했습니다.',
+      }));
+    }
   };
 
   const handleUnsaveRequest = (item) => {
@@ -144,6 +197,8 @@ const BookmarkScreen = () => {
                 id={item.id}
                 word={item.word}
                 thumbnailUrl={item.thumbnailUrl}
+                objectKey={item.objectKey}
+                videoUrl={item.videoUrl}
                 onPlayVideo={handlePlayVideo}
                 onToggleSave={handleUnsaveRequest}
                 isSaved
@@ -172,6 +227,16 @@ const BookmarkScreen = () => {
           </div>
         )}
       </div>
+
+      <SignVideoModal
+        isOpen={videoModal.isOpen}
+        isLoading={videoModal.isLoading}
+        videoUrl={videoModal.videoUrl}
+        word={videoModal.item?.word}
+        error={videoModal.error}
+        onClose={closeVideoModal}
+        onRetry={videoModal.item ? () => handlePlayVideo(videoModal.item) : undefined}
+      />
 
       {showUnsaveModal && pendingItem && (
         <div className="fixed inset-0 bg-white/70 backdrop-blur-sm flex justify-center items-center z-50 p-4">

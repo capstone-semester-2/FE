@@ -22,6 +22,12 @@ const normalizeBookmark = (item) => ({
     item?.bookMarkId,
   word: item?.gestureName ?? item?.name ?? item?.dictionaryName ?? '',
   thumbnailUrl: item?.gestureUrl ?? item?.thumbnailUrl,
+  objectKey:
+    item?.objectKey ??
+    item?.videoObjectKey ??
+    item?.gestureObjectKey ??
+    item?.gestureUrlObjectKey,
+  videoUrl: item?.videoUrl ?? item?.gestureVideoUrl ?? item?.gestureUrl ?? item?.thumbnailUrl,
 });
 
 export const BookmarkProvider = ({ children }) => {
@@ -113,6 +119,16 @@ export const BookmarkProvider = ({ children }) => {
             baseItem?.dictionaryName ??
             '',
           thumbnailUrl: baseItem?.thumbnailUrl ?? baseItem?.gestureUrl,
+          objectKey:
+            baseItem?.objectKey ??
+            baseItem?.videoObjectKey ??
+            baseItem?.gestureObjectKey ??
+            baseItem?.gestureUrlObjectKey,
+          videoUrl:
+            baseItem?.videoUrl ??
+            baseItem?.gestureVideoUrl ??
+            baseItem?.gestureUrl ??
+            baseItem?.thumbnailUrl,
         };
 
         if (!normalized.word) {

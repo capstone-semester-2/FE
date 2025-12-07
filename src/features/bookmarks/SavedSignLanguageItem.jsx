@@ -5,6 +5,8 @@ const SavedSignLanguageItem = ({
   id,
   word,
   thumbnailUrl,
+  objectKey,
+  videoUrl,
   onPlayVideo,
   onToggleSave,
   isSaved = false,
@@ -36,7 +38,15 @@ const SavedSignLanguageItem = ({
           <div className="grid grid-cols-2 gap-2 w-full">
             <button
               type="button"
-              onClick={() => onPlayVideo?.(word)}
+              onClick={() =>
+                onPlayVideo?.({
+                  id,
+                  word,
+                  thumbnailUrl,
+                  objectKey,
+                  videoUrl,
+                })
+              }
               className="flex items-center justify-center gap-2 w-full px-3 py-2 rounded-full bg-[#F3E9FF] text-[#9B55E0] text-sm font-medium hover:bg-[#EADDFC] transition-colors whitespace-nowrap"
             >
               <Play className="w-4 h-4" />
