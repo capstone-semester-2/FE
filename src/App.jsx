@@ -154,22 +154,37 @@ function App() {
         await notifyUploadComplete({ objectKey, emitterId, voiceModel });
         const analysisResult = await waitForResult;
         console.log('[recording] analysis result received', analysisResult);
-        const text =
-          analysisResult?.text ||
-          analysisResult?.result?.text ||
-          analysisResult?.data?.text ||
-          analysisResult?.message ||
-          analysisResult?.result?.message ||
-          '분석 결과를 받아오지 못했습니다.';
         const mappings =
           analysisResult?.textMappings ||
           analysisResult?.result?.textMappings ||
           analysisResult?.data?.textMappings ||
           [];
-        setClarifiedText(text);
-        setTextMappings(Array.isArray(mappings) ? mappings : []);
-        if (text) {
-          speakText(text);
+        const normalizedMappings = Array.isArray(mappings) ? mappings : [];
+        const mappingText = normalizedMappings
+          .map((item) => (item?.word || '').trim())
+          .filter(Boolean)
+          .join(' ');
+
+        const textCandidates = [
+          analysisResult?.text,
+          analysisResult?.result?.text,
+          analysisResult?.data?.text,
+          analysisResult?.translatedText,
+          analysisResult?.result?.translatedText,
+          analysisResult?.data?.translatedText,
+          mappingText,
+          analysisResult?.message,
+          analysisResult?.result?.message,
+        ]
+          .map((val) => (typeof val === 'string' ? val.trim() : ''))
+          .filter(Boolean);
+
+        const resolvedText = textCandidates[0] || '분석 결과를 받아오지 못했습니다.';
+
+        setClarifiedText(resolvedText);
+        setTextMappings(normalizedMappings);
+        if (resolvedText) {
+          speakText(resolvedText);
         }
       } finally {
         cancel?.();
