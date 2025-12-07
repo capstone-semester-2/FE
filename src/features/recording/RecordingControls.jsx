@@ -30,6 +30,8 @@ const RecordingControls = ({
   onListenPress,
   onSelectQuickPhrase,
   fontSize = 18,
+  textMappings = [],
+  onSignWordClick,
 }) => {
     const isListenMode = activeMode === 'listen';
     const isVoiceRecording = isRecording && activeMode === 'voice';
@@ -115,7 +117,7 @@ const RecordingControls = ({
       return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
-    const renderText = () => {
+    const renderPlainText = () => {
       if (isPreparing) {
         return '마이크를 준비하는 중입니다...';
       }
@@ -132,6 +134,43 @@ const RecordingControls = ({
         return '듣기 모드가 켜져 있어요. 주변의 말을 들려주세요.';
       }
       return '변환된 텍스트가 여기에 표시됩니다.';
+    };
+
+    const hasMappings = Array.isArray(textMappings) && textMappings.length > 0;
+    const renderWithMappings = () => {
+      if (!hasMappings) {
+        return renderPlainText();
+      }
+
+      return textMappings.map((item, index) => {
+        const { word = '', exists } = item || {};
+        if (!word) return null;
+        const isClickable = exists && onSignWordClick;
+        const className = isClickable
+          ? 'text-indigo-600 underline font-semibold cursor-pointer hover:text-indigo-700 transition-colors'
+          : 'text-gray-900';
+
+        if (isClickable) {
+          return (
+            <button
+              key={`${word}-${index}`}
+              type="button"
+              onClick={() => onSignWordClick?.(item)}
+              className={`${className} bg-transparent p-0 border-none inline`}
+            >
+              {word}
+              {' '}
+            </button>
+          );
+        }
+
+        return (
+          <span key={`${word}-${index}`} className={className}>
+            {word}
+            {' '}
+          </span>
+        );
+      });
     };
     
     return (
@@ -248,14 +287,14 @@ const RecordingControls = ({
               </div>
             )}
             <div className="w-full min-h-[96px] px-4 flex items-center justify-center">
-              <p
+              <div
                 className={`w-full text-center font-medium break-words ${
                   displayText ? 'text-2xl text-gray-900 leading-relaxed' : 'text-base text-gray-700'
                 }`}
                 style={{ fontSize: fontSize ? `${fontSize}px` : undefined }}
               >
-                {renderText()}
-              </p>
+                {renderWithMappings()}
+              </div>
             </div>
             {displayText && !isProcessing && (
               <button

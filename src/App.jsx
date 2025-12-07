@@ -9,6 +9,7 @@ import BookmarkScreen from './features/bookmarks/BookmarkScreen';
 import EncyclopediaScreen from './features/encyclopedia/EncyclopediaScreen';
 import SettingsModal from './features/settings/SettingsModal';
 import CustomVoiceTraining from './features/settings/CustomVoiceTraining';
+import SignVideoModal from './components/SignVideoModal';
 import { BookmarkProvider } from './store/BookmarkContext';
 import useVoiceRecorder from './hooks/useVoiceRecorder';
 import { requestGetPresignedUrl, requestPresignedUrl, uploadToPresignedUrl } from './services/fileUpload';
@@ -29,6 +30,7 @@ function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isTrainingOpen, setIsTrainingOpen] = useState(false);
   const [clarifiedText, setClarifiedText] = useState('');
+  const [textMappings, setTextMappings] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [recorderError, setRecorderError] = useState('');
@@ -53,6 +55,13 @@ function App() {
   const [toast, setToast] = useState(null);
   const toastTimerRef = useRef(null);
   const trainingPayloadRef = useRef(null);
+  const [signVideoModal, setSignVideoModal] = useState({
+    isOpen: false,
+    isLoading: false,
+    videoUrl: '',
+    error: '',
+    item: null,
+  });
 
   const {
     error,
@@ -68,6 +77,7 @@ function App() {
   const handleStartRecording = async () => {
     setActiveMode('voice');
     setClarifiedText('');
+    setTextMappings([]);
     setRecorderError('');
     setIsPreparingRecording(true);
     try {
@@ -94,6 +104,7 @@ function App() {
     // 듣기 모드로 새로 시작
     setActiveMode('listen');
     setClarifiedText('');
+    setTextMappings([]);
     setRecorderError('');
     setIsPreparingRecording(true);
     try {
@@ -146,10 +157,17 @@ function App() {
         const text =
           analysisResult?.text ||
           analysisResult?.result?.text ||
+          analysisResult?.data?.text ||
           analysisResult?.message ||
           analysisResult?.result?.message ||
           '분석 결과를 받아오지 못했습니다.';
+        const mappings =
+          analysisResult?.textMappings ||
+          analysisResult?.result?.textMappings ||
+          analysisResult?.data?.textMappings ||
+          [];
         setClarifiedText(text);
+        setTextMappings(Array.isArray(mappings) ? mappings : []);
         if (text) {
           speakText(text);
         }
@@ -336,6 +354,52 @@ function App() {
     }
   }, [customVoiceStatus]);
 
+  const closeSignVideoModal = () => {
+    setSignVideoModal({
+      isOpen: false,
+      isLoading: false,
+      videoUrl: '',
+      error: '',
+      item: null,
+    });
+  };
+
+  const handlePlaySignVideo = useCallback(
+    async (mapping) => {
+      if (!mapping?.exists) {
+        return;
+      }
+
+      setSignVideoModal({
+        isOpen: true,
+        isLoading: true,
+        videoUrl: '',
+        error: '',
+        item: mapping,
+      });
+
+      try {
+        if (!mapping?.objectKey) {
+          throw new Error('영상 objectKey가 없습니다.');
+        }
+        const { preSignedUrl } = await requestGetPresignedUrl(mapping.objectKey);
+        setSignVideoModal((prev) => ({
+          ...prev,
+          videoUrl: preSignedUrl,
+          isLoading: false,
+          error: '',
+        }));
+      } catch (err) {
+        setSignVideoModal((prev) => ({
+          ...prev,
+          isLoading: false,
+          error: err.message || '영상 재생 주소를 불러오지 못했습니다.',
+        }));
+      }
+    },
+    [],
+  );
+
   const normalizeVoiceRecord = (item) => ({
     id: item?.voiceId ?? item?.id,
     clarifiedText: item?.translatedText ?? '',
@@ -446,12 +510,14 @@ function App() {
                   errorMessage={recorderError || error}
                   activeMode={activeMode}
                   onListenPress={handleListenPress}
-                  onSelectQuickPhrase={handleSelectQuickPhrase}
-                  fontSize={ttsSettings.fontSize}
-                />
-              </div>
+                onSelectQuickPhrase={handleSelectQuickPhrase}
+                fontSize={ttsSettings.fontSize}
+                textMappings={textMappings}
+                onSignWordClick={handlePlaySignVideo}
+              />
             </div>
-          )}
+          </div>
+        )}
           {activeTab === 'history' && (
             <HistoryScreen 
               recordings={voiceRecords}
@@ -529,6 +595,15 @@ function App() {
             onSubmit={handleCustomTrainingSubmit}
           />
         )}
+        <SignVideoModal
+          isOpen={signVideoModal.isOpen}
+          isLoading={signVideoModal.isLoading}
+          videoUrl={signVideoModal.videoUrl}
+          word={signVideoModal.item?.word}
+          error={signVideoModal.error}
+          onClose={closeSignVideoModal}
+          onRetry={signVideoModal.item ? () => handlePlaySignVideo(signVideoModal.item) : undefined}
+        />
         <Toast message={toast?.message} type={toast?.type} />
         <BottomNavBar activeTab={activeTab} onTabChange={handleTabChange} />
       </div>
