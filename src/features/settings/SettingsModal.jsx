@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { Settings, X, Ear, Brain, GraduationCap, Play, Mic } from 'lucide-react';
+import { Settings, X, Ear, Brain, GraduationCap, Play, Mic, RotateCcw } from 'lucide-react';
 
 const speedMarks = { min: '느림', max: '빠름' };
 const fontMarks = { min: '작게', max: '크게' };
@@ -10,12 +10,21 @@ const statusStyles = {
   failed: { text: '실패', className: 'bg-red-50 text-red-600 border border-red-200' },
 };
 
-const SettingsModal = ({ onClose, onApply, settings, onStartTraining, customVoiceStatus = 'idle' }) => {
+const SettingsModal = ({
+  onClose,
+  onApply,
+  settings,
+  onStartTraining,
+  onResetCustomVoice,
+  customVoiceStatus = 'idle',
+  isResettingCustomVoice = false,
+}) => {
   const [voiceSpeed, setVoiceSpeed] = useState(settings?.voiceSpeed ?? 1);
   const [fontSize, setFontSize] = useState(settings?.fontSize ?? 18);
   const [voiceGender, setVoiceGender] = useState(settings?.voiceGender ?? '남성');
   const [selectedModel, setSelectedModel] = useState(settings?.aiModel ?? 'hearing'); // hearing | cp | custom
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const statusBadge = statusStyles[customVoiceStatus];
   const isCustomReady = customVoiceStatus === 'ready';
   const isCustomTraining = customVoiceStatus === 'training';
@@ -53,6 +62,21 @@ const SettingsModal = ({ onClose, onApply, settings, onStartTraining, customVoic
   const handleStartConfirm = () => {
     setShowConfirm(false);
     onStartTraining?.();
+  };
+  const handleOpenResetConfirm = () => setShowResetConfirm(true);
+  const handleCancelResetConfirm = () => setShowResetConfirm(false);
+  const handleResetConfirm = () => {
+    setShowResetConfirm(false);
+    onResetCustomVoice?.();
+  };
+  const handleCustomCardClick = () => {
+    if (isCustomReady) {
+      setSelectedModel('custom');
+      return;
+    }
+    if (!isCustomTraining) {
+      handleOpenConfirm();
+    }
   };
 
   return (
@@ -149,28 +173,41 @@ const SettingsModal = ({ onClose, onApply, settings, onStartTraining, customVoic
           </div>
           <button
             type="button"
-            onClick={handleOpenConfirm}
+            onClick={handleCustomCardClick}
             className={`w-full mt-2 flex flex-col items-center gap-2 py-4 rounded-2xl border text-sm font-semibold transition-colors ${
-              selectedModel === 'custom'
-                ? 'border-dashed border-[#6366F1] bg-[#EEF2FF] text-[#4F46E5]'
+              selectedModel === 'custom' && isCustomReady
+                ? 'border-[#6366F1] bg-[#EEF2FF] text-[#4F46E5]'
                 : 'border-dashed border-gray-300 bg-white text-gray-700 hover:border-indigo-200'
               }`}
-            disabled={isCustomTraining}
+            disabled={isCustomTraining || isResettingCustomVoice}
           >
             <GraduationCap className="w-5 h-5 text-[#6366F1]" />
             <span>
               {isCustomReady
-                ? '나만의 목소리 (사용 가능)'
+                ? selectedModel === 'custom'
+                  ? '나만의 목소리 (사용중)'
+                  : '나만의 목소리 (사용 가능)'
                 : isCustomTraining
                   ? '나만의 목소리 (학습 중)'
-                  : selectedModel === 'custom'
-                    ? '나만의 목소리 (사용중)'
-                    : '나만의 목소리 (학습하기)'}
+                  : '나만의 목소리 (학습하기)'}
             </span>
             {!isCustomReady && isCustomTraining && (
               <span className="text-xs font-normal text-amber-600">학습 중에는 선택할 수 없습니다</span>
             )}
           </button>
+          {isCustomReady && (
+            <div className="w-full">
+              <button
+                type="button"
+                onClick={handleOpenResetConfirm}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-gray-200 text-gray-800 font-semibold hover:border-red-200 hover:text-red-600 transition-colors"
+                disabled={isCustomTraining || isResettingCustomVoice}
+              >
+                <RotateCcw className="w-4 h-4 text-red-500" />
+                <span>초기화</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -213,6 +250,37 @@ const SettingsModal = ({ onClose, onApply, settings, onStartTraining, customVoic
                 className="flex-1 py-3 rounded-xl bg-[#6366F1] text-white font-semibold hover:bg-[#4F46E5]"
               >
                 시작하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showResetConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleCancelResetConfirm} />
+          <div className="relative z-10 w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl space-y-4">
+            <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto">
+              <RotateCcw className="w-6 h-6 text-red-500" />
+            </div>
+            <h3 className="text-lg font-bold text-center text-gray-900">학습된 모델을 초기화할까요?</h3>
+            <p className="text-sm text-center text-gray-600">
+              초기화하면 나만의 모델을 다시 학습해야 합니다.
+            </p>
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={handleCancelResetConfirm}
+                className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-700 font-semibold hover:bg-gray-50"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleResetConfirm}
+                className="flex-1 py-3 rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 disabled:opacity-70"
+                disabled={isResettingCustomVoice}
+              >
+                초기화
               </button>
             </div>
           </div>

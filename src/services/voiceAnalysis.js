@@ -18,6 +18,84 @@ const parseJson = (raw) => {
   }
 };
 
+const requireAccessToken = () => {
+  const raw = localStorage.getItem("revoice_auth_tokens");
+  if (!raw) throw new Error("로그인이 필요합니다.");
+
+  const parsed = JSON.parse(raw);
+  const accessToken = parsed?.result?.accessToken;
+
+  if (!accessToken) throw new Error("로그인이 필요합니다.");
+
+  return accessToken;
+};
+
+export const checkCustomVoiceLearned = async () => {
+  assertApiBaseUrl();
+
+  const accessToken = requireAccessToken();
+  const url = new URL("voices/isLearned", API_BASE_URL);
+
+  const response = await fetch(url.toString(), {
+    method: "GET",
+    credentials: "include",
+    headers: {
+      "Accept": "application/json",
+      "Authorization": `Bearer ${accessToken}`,
+    },
+  });
+
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const message =
+      payload?.message ||
+      payload?.result?.message ||
+      "학습 여부를 확인하지 못했습니다. 다시 시도해주세요.";
+    throw new Error(message);
+  }
+
+  const isLearned =
+    payload?.result?.isLearned ??
+    payload?.isLearned ??
+    false;
+
+  return { isLearned: Boolean(isLearned) };
+};
+
+export const resetCustomVoiceLearning = async () => {
+  assertApiBaseUrl();
+
+  const accessToken = requireAccessToken();
+  const url = new URL("voices/reset-learning", API_BASE_URL);
+
+  const response = await fetch(url.toString(), {
+    method: "DELETE",
+    credentials: "include",
+    headers: {
+      "Accept": "application/json",
+      "Authorization": `Bearer ${accessToken}`,
+    },
+  });
+
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const message =
+      payload?.message ||
+      payload?.result?.message ||
+      "내 목소리 모델 초기화에 실패했습니다. 다시 시도해주세요.";
+    throw new Error(message);
+  }
+
+  const isLearned =
+    payload?.result?.isLearned ??
+    payload?.isLearned ??
+    false;
+
+  return { isLearned: Boolean(isLearned), message: payload?.result?.message || payload?.message };
+};
+
 export const connectVoiceStream = () => {
   
   assertApiBaseUrl();

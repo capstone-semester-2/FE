@@ -19,6 +19,8 @@ import {
   fetchVoiceList,
   notifyUploadComplete,
   requestAiLearning,
+  checkCustomVoiceLearned,
+  resetCustomVoiceLearning,
 } from './services/voiceAnalysis';
 import { uploadCustomVoiceTrainingSet } from './services/customVoiceTraining';
 
@@ -52,9 +54,11 @@ function App() {
   });
   const [customVoiceStatus, setCustomVoiceStatus] = useState('idle'); // idle | training | ready | failed
   const [isUploadingTraining, setIsUploadingTraining] = useState(false);
+  const [isResettingCustomVoice, setIsResettingCustomVoice] = useState(false);
   const [toast, setToast] = useState(null);
   const toastTimerRef = useRef(null);
   const trainingPayloadRef = useRef(null);
+  const prevCustomVoiceStatusRef = useRef('idle');
   const [signVideoModal, setSignVideoModal] = useState({
     isOpen: false,
     isLoading: false,
@@ -409,15 +413,42 @@ function App() {
     }, 3200);
   };
 
+  useEffect(() => {
+    let isMounted = true;
+    const fetchCustomVoiceState = async () => {
+      try {
+        const { isLearned } = await checkCustomVoiceLearned();
+        if (!isMounted) return;
+        setCustomVoiceStatus((current) => {
+          if (current === 'training') return current;
+          return isLearned ? 'ready' : 'idle';
+        });
+        if (!isLearned) {
+          setTtsSettings((prev) => (prev.aiModel === 'custom' ? { ...prev, aiModel: 'hearing' } : prev));
+        }
+      } catch (err) {
+        console.error('[custom voice] failed to check learned state', err);
+      }
+    };
+    fetchCustomVoiceState();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   useEffect(() => () => {
     stopSpeaking();
   }, [stopSpeaking]);
 
   useEffect(() => {
+    const prevStatus = prevCustomVoiceStatusRef.current;
     if (customVoiceStatus === 'ready') {
       setTtsSettings((prev) => ({ ...prev, aiModel: 'custom' }));
-      showToast('내 목소리 모델이 준비되어 자동 적용했어요.', 'success');
+      if (prevStatus === 'training') {
+        showToast('내 목소리 모델이 준비되어 자동 적용했어요.', 'success');
+      }
     }
+    prevCustomVoiceStatusRef.current = customVoiceStatus;
   }, [customVoiceStatus]);
 
   const closeSignVideoModal = () => {
@@ -554,6 +585,22 @@ function App() {
     };
   }, [isRecording]);
 
+  const handleResetCustomVoice = async () => {
+    if (isResettingCustomVoice || customVoiceStatus === 'training') return;
+    setIsResettingCustomVoice(true);
+    try {
+      const { isLearned } = await resetCustomVoiceLearning();
+      setCustomVoiceStatus(isLearned ? 'ready' : 'idle');
+      setTtsSettings((prev) => ({ ...prev, aiModel: 'hearing' }));
+      showToast('내 목소리 모델을 초기화했어요. 기본 모델로 전환합니다.', 'success');
+    } catch (err) {
+      console.error('[custom voice] reset failed', err);
+      showToast(err.message || '내 목소리 모델 초기화에 실패했습니다.', 'error');
+    } finally {
+      setIsResettingCustomVoice(false);
+    }
+  };
+
   return (
     <BookmarkProvider>
       <div className="app-shell">
@@ -654,7 +701,9 @@ function App() {
                 onApply={handleApplySettings}
                 settings={ttsSettings}
                 customVoiceStatus={customVoiceStatus}
+                isResettingCustomVoice={isResettingCustomVoice}
                 onStartTraining={() => setIsTrainingOpen(true)}
+                onResetCustomVoice={handleResetCustomVoice}
               />
             </div>
           </div>
