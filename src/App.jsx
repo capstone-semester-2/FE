@@ -319,6 +319,7 @@ function App() {
     trainingPayloadRef.current = payload;
     setIsTrainingOpen(false);
     setCustomVoiceStatus('training');
+    let trainingStream = null;
     const baseLabel =
       payload?.baseModel === 'cp'
         ? '뇌성마비'
@@ -329,6 +330,12 @@ function App() {
 
     try {
       setIsUploadingTraining(true);
+      trainingStream = await connectVoiceStream();
+      const { emitterId, waitForResult } = trainingStream || {};
+      if (!emitterId || !waitForResult) {
+        throw new Error('실시간 학습 채널을 준비하지 못했습니다. 다시 시도해주세요.');
+      }
+
       const uploadResult = await uploadCustomVoiceTrainingSet({
         baseModel: payload?.baseModel,
         recordings: payload?.recordings,
@@ -352,15 +359,42 @@ function App() {
       await requestAiLearning({
         voiceModel: learningVoiceModel,
         objectKeyInfos,
+        emitterId,
       });
 
       showToast('학습용 음성 업로드를 완료했고, 모델 학습을 요청했어요.', 'success');
+
+      const trainingResult = await waitForResult;
+      console.log('[custom voice] training result received', trainingResult);
+      const statusText = (
+        trainingResult?.status ||
+        trainingResult?.result?.status ||
+        trainingResult?.data?.status ||
+        trainingResult?.state ||
+        trainingResult?.result?.state ||
+        trainingResult?.data?.state ||
+        trainingResult?.message ||
+        ''
+      ).toString().toLowerCase();
+      const hasError =
+        Boolean(trainingResult?.error || trainingResult?.result?.error) ||
+        statusText.includes('fail') ||
+        statusText.includes('error');
+
+      if (hasError) {
+        setCustomVoiceStatus('failed');
+        showToast('모델 학습 중 오류가 발생했습니다. 다시 시도해주세요.', 'error');
+        return;
+      }
+
+      setCustomVoiceStatus('ready');
     } catch (err) {
       console.error('[custom voice] upload or learning request failed', err);
       setCustomVoiceStatus('failed');
       showToast(err.message || '학습용 음성 업로드/요청에 실패했습니다. 다시 시도해주세요.', 'error');
     } finally {
       setIsUploadingTraining(false);
+      trainingStream?.cancel?.();
     }
   };
 
