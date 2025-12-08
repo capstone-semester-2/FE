@@ -213,11 +213,21 @@ function App() {
     setPlayingAudioId(null);
   }, []);
 
+  const stopSpeaking = useCallback(() => {
+    if (!window.speechSynthesis) {
+      return;
+    }
+    window.speechSynthesis.cancel();
+    setIsSpeaking(false);
+    setPlayingAudioId((current) => (current && current.startsWith('clarified-') ? null : current));
+  }, []);
+
   const playAudioByObjectKey = useCallback(
     async ({ objectKey, id, type }) => {
       if (!objectKey) {
         throw new Error('재생할 오디오 objectKey가 없습니다.');
       }
+      stopSpeaking();
       stopAudioPlayback();
       const { preSignedUrl } = await requestGetPresignedUrl(objectKey);
       const audio = new Audio(preSignedUrl);
@@ -232,16 +242,8 @@ function App() {
       };
       await audio.play();
     },
-    [stopAudioPlayback],
+    [stopAudioPlayback, stopSpeaking],
   );
-
-  const stopSpeaking = useCallback(() => {
-    if (!window.speechSynthesis) {
-      return;
-    }
-    window.speechSynthesis.cancel();
-    setIsSpeaking(false);
-  }, []);
 
   const pickVoice = useCallback((gender) => {
     if (!window.speechSynthesis?.getVoices) {
@@ -264,11 +266,13 @@ function App() {
     return byKeyword(koVoices) || koVoices[0] || byKeyword(voices) || voices[0];
   }, []);
 
-  const speakText = useCallback((text) => {
+  const speakText = useCallback((text, options = {}) => {
+    const { playingId } = options;
     if (!text || !window.speechSynthesis) {
       return;
     }
     stopSpeaking();
+    stopAudioPlayback();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'ko-KR';
     utterance.rate = ttsSettings.voiceSpeed || 1;
@@ -276,11 +280,20 @@ function App() {
     if (voice) {
       utterance.voice = voice;
     }
+    if (playingId) {
+      setPlayingAudioId(playingId);
+    }
     setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
+    const clearSpeakingState = () => {
+      setIsSpeaking(false);
+      if (playingId) {
+        setPlayingAudioId((current) => (current === playingId ? null : current));
+      }
+    };
+    utterance.onend = clearSpeakingState;
+    utterance.onerror = clearSpeakingState;
     window.speechSynthesis.speak(utterance);
-  }, [pickVoice, stopSpeaking, ttsSettings.voiceGender, ttsSettings.voiceSpeed]);
+  }, [pickVoice, stopAudioPlayback, stopSpeaking, ttsSettings.voiceGender, ttsSettings.voiceSpeed]);
 
   const handlePlayClarified = () => {
     if (isSpeaking) {
@@ -558,17 +571,21 @@ function App() {
                   showToast(err.message || '오디오를 재생하지 못했습니다.', 'error');
                 }
               }}
-              onPlayClarified={async (id) => {
+              onPlayClarified={(id) => {
                 try {
                   const target = voiceRecords.find((v) => v.id === id);
-                  const clarifiedKey =
-                    target?.translatedTextObjectKey ??
-                    target?.translatedText_objectKey ??
-                    target?.objectKey;
-                  if (!clarifiedKey) {
-                    throw new Error('변환된 오디오가 없습니다.');
+                  const textToSpeak =
+                    target?.clarifiedText ||
+                    target?.translatedText ||
+                    target?.text ||
+                    '';
+                  if (!window.speechSynthesis) {
+                    throw new Error('이 브라우저는 음성 합성을 지원하지 않습니다.');
                   }
-                  await playAudioByObjectKey({ objectKey: clarifiedKey, id, type: 'clarified' });
+                  if (!textToSpeak) {
+                    throw new Error('변환된 텍스트가 없습니다.');
+                  }
+                  speakText(textToSpeak, { playingId: `clarified-${id}` });
                 } catch (err) {
                   console.error(err);
                   showToast(err.message || '오디오를 재생하지 못했습니다.', 'error');
