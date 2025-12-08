@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Star, X } from 'lucide-react';
 import FrequentWordItem from './FrequentWordItem';
 import SavedSignLanguageItem from './SavedSignLanguageItem';
@@ -28,10 +28,47 @@ const BookmarkScreen = () => {
     error: '',
     item: null,
   });
+  const [speakingWordId, setSpeakingWordId] = useState(null);
 
-  const handlePlayWord = (word) => {
-    console.log(`Playing audio for: ${word}`);
-  };
+  const pickVoice = useCallback(() => {
+    if (typeof window === 'undefined' || !window.speechSynthesis?.getVoices) {
+      return null;
+    }
+    const voices = window.speechSynthesis.getVoices() || [];
+    const koVoices = voices.filter((v) => (v.lang || '').toLowerCase().startsWith('ko'));
+    return koVoices[0] || voices[0] || null;
+  }, []);
+
+  const stopSpeaking = useCallback(() => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) {
+      return;
+    }
+    window.speechSynthesis.cancel();
+    setSpeakingWordId(null);
+  }, []);
+
+  const handlePlayWord = useCallback(
+    (word, id) => {
+      if (!word) return;
+      if (typeof window === 'undefined' || !window.speechSynthesis) {
+        alert('이 브라우저는 음성 합성을 지원하지 않습니다.');
+        return;
+      }
+      stopSpeaking();
+      const utterance = new SpeechSynthesisUtterance(word);
+      utterance.lang = 'ko-KR';
+      const voice = pickVoice();
+      if (voice) {
+        utterance.voice = voice;
+      }
+      setSpeakingWordId(id);
+      const clearState = () => setSpeakingWordId((current) => (current === id ? null : current));
+      utterance.onend = clearState;
+      utterance.onerror = clearState;
+      window.speechSynthesis.speak(utterance);
+    },
+    [pickVoice, stopSpeaking],
+  );
 
   const closeVideoModal = () => {
     setVideoModal({
@@ -153,6 +190,8 @@ const BookmarkScreen = () => {
     return () => observer.disconnect();
   }, [hasMore, isLoading, loadMore]);
 
+  useEffect(() => () => stopSpeaking(), [stopSpeaking]);
+
   return (
     <div className="flex-1 overflow-auto pb-24 bg-gray-50">
       <div className="px-5 pt-6 pb-10 space-y-8">
@@ -164,7 +203,7 @@ const BookmarkScreen = () => {
             <div className="text-left">
               <h2 className="text-xl font-semibold text-gray-900">내가 자주 사용한 단어</h2>
               <p className="text-sm text-gray-400 mt-1">
-                {isTopLoading ? '불러오는 중...' : '클릭하면 수어 영상을 볼 수 있어요'}
+                {isTopLoading ? '불러오는 중...' : '클릭하면 음성이 재생돼요'}
               </p>
             </div>
           </header>
@@ -179,10 +218,12 @@ const BookmarkScreen = () => {
               {frequentWords.map((item) => (
                 <FrequentWordItem
                   key={item.id}
+                  id={item.id}
                   rank={item.rank}
                   word={item.word}
                   count={item.count}
                   onPlay={handlePlayWord}
+                  isSpeaking={speakingWordId === item.id}
                 />
               ))}
             </div>

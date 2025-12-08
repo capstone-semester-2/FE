@@ -1,7 +1,7 @@
 import React from 'react';
 import { Volume2 } from 'lucide-react';
 
-const FrequentWordItem = ({ rank, word, count, onPlay }) => {
+const FrequentWordItem = ({ id, rank, word, count, onPlay, isSpeaking }) => {
   const getRankColor = (rank) => {
     switch(rank) {
       case 1: return 'bg-yellow-500';
@@ -12,7 +12,20 @@ const FrequentWordItem = ({ rank, word, count, onPlay }) => {
   };
 
   return (
-    <div className="flex items-center gap-3 bg-gray-50 rounded-2xl p-4 hover:bg-gray-100 transition-colors">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => !isSpeaking && onPlay?.(word, id)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          !isSpeaking && onPlay?.(word, id);
+        }
+      }}
+      className={`flex items-center gap-3 bg-gray-50 rounded-2xl p-4 transition-colors ${
+        isSpeaking ? 'opacity-70 cursor-wait' : 'hover:bg-gray-100 cursor-pointer'
+      }`}
+    >
       {/* 순위 뱃지 */}
       <div className={`w-[29px] h-[29px] ${getRankColor(rank)} rounded-[10px] flex items-center justify-center flex-shrink-0`}>
         <span className="text-white text-[15px] text-base">{rank}</span>
@@ -28,7 +41,13 @@ const FrequentWordItem = ({ rank, word, count, onPlay }) => {
 
       {/* 음성 재생 버튼 */}
       <button
-        onClick={() => onPlay(word)}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (!isSpeaking) {
+            onPlay?.(word, id);
+          }
+        }}
+        disabled={isSpeaking}
         className="w-10 h-10 bg-transparent rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors flex-shrink-0"
       >
         <Volume2 className="w-5 h-5 text-gray-700" />
