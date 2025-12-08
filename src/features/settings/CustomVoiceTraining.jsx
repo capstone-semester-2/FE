@@ -129,9 +129,10 @@ const CustomVoiceTraining = ({ onClose, onSubmit }) => {
       setIsSaving(false);
 
       if (blob) {
+        const recordingIndex = currentIndex + 1; // 서버에 1부터 시작하는 순번을 전달하기 위해 +1
         setRecordings((prev) => {
           const next = [...prev];
-          next[currentIndex] = { blob, duration: durationSec, index: currentIndex };
+          next[currentIndex] = { blob, duration: durationSec, index: recordingIndex };
           return next;
         });
       }

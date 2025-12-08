@@ -170,13 +170,23 @@ export const requestAiLearning = async ({ voiceModel, emitterId, objectKeyInfos 
     emitterId ||
     (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `emitter-${Date.now()}`);
 
+  const normalizeIndex = (value, fallback) => {
+    const num = Number(value);
+    if (Number.isFinite(num) && num > 0) {
+      return Math.floor(num);
+    }
+    return fallback;
+  };
+
   const list = Array.isArray(objectKeyInfos) ? objectKeyInfos : [];
   const normalizedList = list
-    .map((item) => ({
+    .map((item, index) => ({
       objectKeyId: item?.objectKeyId ?? item?.id ?? null,
       objectKey: item?.objectKey,
+      index: normalizeIndex(item?.index, index + 1),
     }))
-    .filter((item) => Boolean(item.objectKey));
+    .filter((item) => Boolean(item.objectKey))
+    .sort((a, b) => a.index - b.index);
 
   if (!normalizedList.length) {
     throw new Error('학습용 objectKey 정보가 없습니다.');

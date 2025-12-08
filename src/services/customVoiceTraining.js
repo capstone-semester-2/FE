@@ -72,16 +72,35 @@ export const uploadCustomVoiceTrainingSet = async ({
     throw new Error('업로드할 녹음이 없습니다.');
   }
 
-  const sortedRecordings = [...recordings].sort((a, b) => (a?.index ?? 0) - (b?.index ?? 0));
+  const normalizeRecordingIndex = (value, fallback) => {
+    const num = Number(value);
+    if (Number.isFinite(num) && num > 0) {
+      return Math.floor(num);
+    }
+    return fallback;
+  };
+
+  const normalizedRecordings = recordings
+    .filter(Boolean)
+    .map((recording, i) => ({
+      ...recording,
+      index: normalizeRecordingIndex(recording?.index, i + 1),
+    }))
+    .sort((a, b) => a.index - b.index);
+
+  if (!normalizedRecordings.length) {
+    throw new Error('업로드할 녹음이 없습니다.');
+  }
+
   const presignedList = await requestTrainingPresignedUrls({ baseModel });
 
-  if (presignedList.length < sortedRecordings.length) {
+  if (presignedList.length < normalizedRecordings.length) {
     throw new Error('서버에서 받은 업로드 URL 수가 부족합니다. 다시 시도해주세요.');
   }
 
   const uploads = [];
-  for (let i = 0; i < sortedRecordings.length; i += 1) {
-    const recording = sortedRecordings[i];
+  for (let i = 0; i < normalizedRecordings.length; i += 1) {
+    const recording = normalizedRecordings[i];
     const presigned = presignedList[i];
     const blob = recording?.blob;
 
@@ -89,7 +108,8 @@ export const uploadCustomVoiceTrainingSet = async ({
       throw new Error(`녹음 ${i + 1}번 파일이 없습니다.`);
     }
 
-    const index = recording?.index ?? i;
+    const index = normalizeRecordingIndex(recording?.index, i + 1);
+    const sentenceIndex = index - 1;
     const file = new File(
       [blob],
       `custom-training-${index}.wav`,
@@ -103,11 +123,11 @@ export const uploadCustomVoiceTrainingSet = async ({
       objectKeyId: presigned.objectKeyId ?? null,
       expiresAt: presigned.expiresAt,
       index,
-      sentence: sentences[index] ?? null,
+      sentence: sentences[sentenceIndex] ?? null,
     });
 
     if (onProgress) {
-      onProgress((i + 1) / sortedRecordings.length);
+      onProgress((i + 1) / normalizedRecordings.length);
     }
   }
 

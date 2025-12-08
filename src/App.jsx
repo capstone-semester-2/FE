@@ -343,12 +343,15 @@ function App() {
             ? 'KOREAN'
             : 'HEARING');
 
+      const objectKeyInfos = (uploadResult?.uploads || []).map((item, index) => ({
+        objectKeyId: item?.objectKeyId ?? item?.id ?? null,
+        objectKey: item?.objectKey,
+        index: item?.index ?? index + 1,
+      }));
+
       await requestAiLearning({
         voiceModel: learningVoiceModel,
-        objectKeyInfos: uploadResult?.uploads?.map((item) => ({
-          objectKeyId: item?.objectKeyId ?? item?.id ?? null,
-          objectKey: item?.objectKey,
-        })),
+        objectKeyInfos,
       });
 
       showToast('학습용 음성 업로드를 완료했고, 모델 학습을 요청했어요.', 'success');
