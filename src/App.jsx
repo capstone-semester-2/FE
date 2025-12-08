@@ -344,7 +344,7 @@ function App() {
             : 'HEARING');
 
       const objectKeyInfos = (uploadResult?.uploads || []).map((item, index) => ({
-        objectKeyId: item?.objectKeyId ?? item?.id ?? null,
+        objectKeyId: item?.objectKeyId ?? item?.id ?? item?.index ?? index + 1,
         objectKey: item?.objectKey,
         index: item?.index ?? index + 1,
       }));

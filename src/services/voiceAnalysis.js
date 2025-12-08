@@ -181,7 +181,7 @@ export const requestAiLearning = async ({ voiceModel, emitterId, objectKeyInfos 
   const list = Array.isArray(objectKeyInfos) ? objectKeyInfos : [];
   const normalizedList = list
     .map((item, index) => ({
-      objectKeyId: item?.objectKeyId ?? item?.id ?? null,
+      objectKeyId: item?.objectKeyId ?? item?.id ?? item?.index ?? index + 1,
       objectKey: item?.objectKey,
       index: normalizeIndex(item?.index, index + 1),
     }))

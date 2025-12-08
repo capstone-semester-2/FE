@@ -56,7 +56,7 @@ export const requestTrainingPresignedUrls = async ({ baseModel = 'hearing' } = {
   return list.map((item, index) => ({
     preSignedUrl: item.preSignedUrl || item.presignedUrl,
     objectKey: item.objectKey,
-    objectKeyId: item.objectKeyId ?? item.id ?? null,
+    objectKeyId: item.objectKeyId ?? item.id ?? index + 1,
     expiresAt: item.expiresAt,
     index,
   }));
@@ -120,7 +120,7 @@ export const uploadCustomVoiceTrainingSet = async ({
 
     uploads.push({
       objectKey: presigned.objectKey,
-      objectKeyId: presigned.objectKeyId ?? null,
+      objectKeyId: presigned.objectKeyId ?? index,
       expiresAt: presigned.expiresAt,
       index,
       sentence: sentences[sentenceIndex] ?? null,
