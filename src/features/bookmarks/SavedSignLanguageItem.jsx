@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Play, Bookmark } from 'lucide-react';
+import defaultThumbnail from '../../assets/encyclopedia-thumbnail.png';
 
 const SavedSignLanguageItem = ({
   id,
@@ -12,6 +13,7 @@ const SavedSignLanguageItem = ({
   isSaved = false,
 }) => {
   const [isImageError, setIsImageError] = useState(false);
+  const displayThumbnail = !thumbnailUrl || isImageError ? defaultThumbnail : thumbnailUrl;
 
   useEffect(() => {
     setIsImageError(false);
@@ -20,17 +22,18 @@ const SavedSignLanguageItem = ({
   return (
     <div className="bg-white rounded-[26px] px-5 py-4 ">
       <div className="flex items-center gap-4">
-        <div className="w-20 h-20 bg-[#EDE7FF] rounded-[18px] flex items-center justify-center overflow-hidden flex-shrink-0">
-          {thumbnailUrl && !isImageError ? (
-            <img
-              src={thumbnailUrl}
-              alt={`${word} 썸네일`}
-              className="w-full h-full object-cover"
-              onError={() => setIsImageError(true)}
-            />
-          ) : (
-            <Play className="w-6 h-6 text-[#7B61FF]" />
-          )}
+        <div className="relative w-20 h-20 bg-[#EDE7FF] rounded-[18px] overflow-hidden flex-shrink-0">
+          <img
+            src={displayThumbnail}
+            alt={`${word} 썸네일`}
+            className="w-full h-full object-cover"
+            onError={() => setIsImageError(true)}
+          />
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-full bg-black/45 flex items-center justify-center">
+              <Play className="w-5 h-5 text-white" />
+            </div>
+          </div>
         </div>
 
         <div className="flex-1 min-w-0">
