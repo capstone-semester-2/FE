@@ -147,8 +147,8 @@ const RecordingControls = ({
         if (!word) return null;
         const isClickable = exists && onSignWordClick;
         const className = isClickable
-          ? 'text-indigo-600 font-semibold cursor-pointer hover:text-indigo-700 transition-colors'
-          : 'text-gray-900';
+          ? 'text-indigo-600 font-semibold cursor-pointer hover:text-indigo-700 transition-colors inline-block mr-2 last:mr-0'
+          : 'text-gray-900 inline-block mr-2 last:mr-0';
 
         if (isClickable) {
           return (
@@ -156,10 +156,9 @@ const RecordingControls = ({
               key={`${word}-${index}`}
               type="button"
               onClick={() => onSignWordClick?.(item)}
-              className={`${className} bg-transparent p-0 border-none inline`}
+              className={`${className} bg-transparent p-0 border-none inline-block`}
             >
               {word}
-              {' '}
             </button>
           );
         }
@@ -167,7 +166,6 @@ const RecordingControls = ({
         return (
           <span key={`${word}-${index}`} className={className}>
             {word}
-            {' '}
           </span>
         );
       });

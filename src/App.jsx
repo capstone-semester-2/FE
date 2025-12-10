@@ -157,7 +157,9 @@ function App() {
         await notifyUploadComplete({ objectKey, emitterId, voiceModel });
         const analysisResult = await waitForResult;
         console.log('[recording] analysis result received', analysisResult);
+        const payload = analysisResult?.data || analysisResult?.result || analysisResult;
         const mappings =
+          payload?.textMappings ||
           analysisResult?.textMappings ||
           analysisResult?.result?.textMappings ||
           analysisResult?.data?.textMappings ||
