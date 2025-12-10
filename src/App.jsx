@@ -48,7 +48,7 @@ function App() {
   const historyLoadedRef = useRef(false);
   const [ttsSettings, setTtsSettings] = useState({
     voiceSpeed: 1,
-    fontSize: 18,
+    fontSize: 20,
     voiceGender: '남성',
     aiModel: 'hearing',
   });

@@ -29,7 +29,7 @@ const RecordingControls = ({
   activeMode = 'voice',
   onListenPress,
   onSelectQuickPhrase,
-  fontSize = 18,
+  fontSize = 20,
   textMappings = [],
   onSignWordClick,
 }) => {
