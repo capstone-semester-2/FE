@@ -162,20 +162,39 @@ function App() {
           analysisResult?.result?.textMappings ||
           analysisResult?.data?.textMappings ||
           [];
-        const normalizedMappings = Array.isArray(mappings) ? mappings : [];
-        const mappingText = normalizedMappings
-          .map((item) => (item?.word || '').trim())
-          .filter(Boolean)
-          .join(' ');
+
+        const normalizedMappings = Array.isArray(mappings)
+          ? mappings
+              .map((item, index) => {
+                if (item === null || item === undefined) return null;
+                if (typeof item === 'string' || typeof item === 'number') {
+                  const word = String(item).trim();
+                  return word ? { word, index } : null;
+                }
+                if (typeof item === 'object') {
+                  const word =
+                    (typeof item.word === 'string' && item.word.trim()) ||
+                    (typeof item.text === 'string' && item.text.trim()) ||
+                    (typeof item.value === 'string' && item.value.trim()) ||
+                    '';
+                  if (!word) return null;
+                  return { ...item, word: word.trim(), index: item.index ?? index };
+                }
+                return null;
+              })
+              .filter(Boolean)
+          : [];
+
+        const mappingText = normalizedMappings.map((item) => item.word).join(' ').trim();
 
         const textCandidates = [
+          mappingText,
           analysisResult?.text,
           analysisResult?.result?.text,
           analysisResult?.data?.text,
           analysisResult?.translatedText,
           analysisResult?.result?.translatedText,
           analysisResult?.data?.translatedText,
-          mappingText,
           analysisResult?.message,
           analysisResult?.result?.message,
         ]
