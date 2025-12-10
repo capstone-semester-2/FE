@@ -21,7 +21,6 @@ const SettingsModal = ({
 }) => {
   const [voiceSpeed, setVoiceSpeed] = useState(settings?.voiceSpeed ?? 1);
   const [fontSize, setFontSize] = useState(settings?.fontSize ?? 20);
-  const [voiceGender, setVoiceGender] = useState(settings?.voiceGender ?? '남성');
   const [selectedModel, setSelectedModel] = useState(settings?.aiModel ?? 'hearing'); // hearing | cp | custom
   const [showConfirm, setShowConfirm] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
@@ -40,7 +39,6 @@ const SettingsModal = ({
     if (!settings) return;
     setVoiceSpeed(settings.voiceSpeed ?? 1);
     setFontSize(settings.fontSize ?? 20);
-    setVoiceGender(settings.voiceGender ?? '남성');
     setSelectedModel(settings.aiModel ?? 'hearing');
   }, [settings]);
 
@@ -51,7 +49,6 @@ const SettingsModal = ({
     onApply?.({
       voiceSpeed,
       fontSize,
-      voiceGender,
       aiModel: selectedModel,
     });
     onClose?.();

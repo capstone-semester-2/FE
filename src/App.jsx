@@ -49,7 +49,6 @@ function App() {
   const [ttsSettings, setTtsSettings] = useState({
     voiceSpeed: 1,
     fontSize: 20,
-    voiceGender: '남성',
     aiModel: 'hearing',
   });
   const [customVoiceStatus, setCustomVoiceStatus] = useState('idle'); // idle | training | ready | failed
@@ -249,17 +248,14 @@ function App() {
     [stopAudioPlayback, stopSpeaking],
   );
 
-  const pickVoice = useCallback((gender) => {
+  const pickVoice = useCallback(() => {
     if (!window.speechSynthesis?.getVoices) {
       return null;
     }
     const voices = window.speechSynthesis.getVoices() || [];
     if (!voices.length) return null;
 
-    const femaleKeywords = ['female', 'girl', 'woman', 'salli', 'yuna', 'hana', 'mijin'];
-    const maleKeywords = ['male', 'man', 'boy', 'seoyeon', 'jisoo', 'taesoo', 'taeyang'];
-    const isFemale = gender === '여성';
-    const keywords = isFemale ? femaleKeywords : maleKeywords;
+    const keywords = ['yuna', 'hana', 'mijin', 'seoyeon', 'jisoo', 'taesoo', 'taeyang', 'salli'];
 
     const koVoices = voices.filter((v) => (v.lang || '').toLowerCase().startsWith('ko'));
     const byKeyword = (list) =>
@@ -280,7 +276,7 @@ function App() {
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'ko-KR';
     utterance.rate = ttsSettings.voiceSpeed || 1;
-    const voice = pickVoice(ttsSettings.voiceGender);
+    const voice = pickVoice();
     if (voice) {
       utterance.voice = voice;
     }
@@ -297,7 +293,7 @@ function App() {
     utterance.onend = clearSpeakingState;
     utterance.onerror = clearSpeakingState;
     window.speechSynthesis.speak(utterance);
-  }, [pickVoice, stopAudioPlayback, stopSpeaking, ttsSettings.voiceGender, ttsSettings.voiceSpeed]);
+  }, [pickVoice, stopAudioPlayback, stopSpeaking, ttsSettings.voiceSpeed]);
 
   const handlePlayClarified = () => {
     if (isSpeaking) {
