@@ -32,7 +32,7 @@ const SettingsModal = ({
   const modelLabel = useMemo(() => {
     if (selectedModel === 'hearing') return '언어청각장애';
     if (selectedModel === 'cp') return '뇌성마비';
-    return '나만의 목소리';
+    return '내 목소리';
   }, [selectedModel]);
 
   useEffect(() => {
@@ -182,11 +182,11 @@ const SettingsModal = ({
             <span>
               {isCustomReady
                 ? selectedModel === 'custom'
-                  ? '나만의 목소리 (사용중)'
-                  : '나만의 목소리 (사용 가능)'
+                  ? '내 목소리 (사용중)'
+                  : '내 목소리 (사용 가능)'
                 : isCustomTraining
-                  ? '나만의 목소리 (학습 중)'
-                  : '나만의 목소리 (학습하기)'}
+                  ? '내 목소리 (학습 중)'
+                  : '내 목소리 (학습하기)'}
             </span>
             {!isCustomReady && isCustomTraining && (
               <span className="text-xs font-normal text-amber-600">학습 중에는 선택할 수 없습니다</span>

@@ -211,7 +211,7 @@ const CustomVoiceTraining = ({ onClose, onSubmit }) => {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <p className="text-xs text-gray-500">나만의 목소리</p>
+            <p className="text-xs text-gray-500">내 목소리</p>
             <h2 className="text-lg font-bold text-gray-900">AI 학습하기</h2>
           </div>
         </header>
