@@ -226,7 +226,14 @@ function App() {
   };
 
   const handleDeleteRecording = (id) => {
-    setVoiceRecords((prev) => prev.filter((rec) => rec.id !== id));
+    setVoiceRecords((prev) => {
+      const next = prev.filter((rec) => rec.id !== id);
+      if (next.length !== prev.length) {
+        const removed = prev.length - next.length;
+        setVoiceTotalCount((count) => Math.max((count ?? 0) - removed, next.length));
+      }
+      return next;
+    });
   };
 
   const stopAudioPlayback = useCallback(() => {
